@@ -3,11 +3,39 @@
 	"description": "This is a mono repo for packages used in browser extension development.",
 	"private": true,
 	"version": "0.0.0",
-	"workspaces": [
-		"packages/*",
-		"examples/*"
-	],
+	"type": "module",
+	"packageManager": "bun@1.4.0",
 	"scripts": {
-		"git": "bun run ./scripts/git-helper.ts add-git"
+		"git": "bun run ./scripts/git-helper.ts add-git",
+		"build": "turbo run build",
+		"build:pkg": "turbo run build --filter",
+		"dev": "turbo run dev --parallel",
+		"dev:pkg": "turbo run dev --filter",
+		"test": "turbo run test",
+		"test:pkg": "turbo run test --filter",
+		"lint": "biome lint packages",
+		"lint:fix": "biome lint packages --fix",
+		"format": "biome format packages --write",
+		"format:pkg": "turbo run dev --filter",
+		"format:check": "biome format packages --check"
+	},
+	"devDependencies": {
+		"turbo": "^2.10.12",
+		"@biomejs/biome": "^2.5.11"
+	},
+	"workspaces": {
+		"packages": [
+			"packages/*",
+			"examples/*"
+		],
+		"catalog": {
+			"@types/chrome": "^0.2.7",
+			"@types/node": "^26.4.0",
+			"@types/react": "^19.2.18",
+			"jsdom": "^30.0.1",
+			"tsdown": "^0.22.14",
+			"vitest": "^4.1.11",
+			"typescript": "^7.0.2"
+		}
 	}
 }

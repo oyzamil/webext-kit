@@ -3,6 +3,11 @@
 	"version": "0.0.1",
 	"description": "Type-safe, zero-config messaging library for WXT browser extensions",
 	"type": "module",
+	"homepage": "https://github.com/oyzamil/webext-kit#readme",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/oyzamil/webext-kit.git"
+	},
 	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
@@ -68,7 +73,7 @@
 		"dist"
 	],
 	"scripts": {
-		"dev": "npm run dev:compile & npm run dev:test",
+		"dev": "bun run dev:compile && bun run dev:test",
 		"dev:compile": "tsdown --watch",
 		"dev:test": "vitest",
 		"build": "tsdown",
@@ -77,7 +82,7 @@
 		"lint:fix": "biome lint src --fix",
 		"format": "biome format src --write",
 		"format:check": "biome format src --check",
-		"prepublishOnly": "npm run build && npm run test && npm run lint"
+		"prepublishOnly": "bun run build && bun run test && bun run lint"
 	},
 	"keywords": [
 		"react-hook",
@@ -86,7 +91,7 @@
 		"wxt",
 		"messaging"
 	],
-	"author": "",
+	"author": "M.Muzammil <qazi.web@gmail.com> (https://muzammil.work/)",
 	"license": "MIT",
 	"peerDependencies": {
 		"react": "^16.8.6 || ^17 || ^18 || ^19.0.0"
@@ -97,22 +102,17 @@
 		}
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.11",
-		"@types/chrome": "^0.2.7",
-		"@types/node": "^26.4.0",
-		"jsdom": "^30.0.1",
-		"tsdown": "^0.22.14",
-		"typescript": "^7.0.2",
-		"vitest": "^4.1.11",
+		"@types/chrome": "catalog:",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"jsdom": "catalog:",
+		"tsdown": "catalog:",
+		"vitest": "catalog:",
 		"react": "^19.2.8",
-		"@types/react": "^19.2.18"
+		"typescript": "catalog:"
 	},
 	"dependencies": {
-		"biome": "^0.3.3",
 		"nanoid": "^6.0.1",
 		"unrun": "^0.3.1"
-	},
-	"workspaces": [
-		"examples/*"
-	]
+	}
 }

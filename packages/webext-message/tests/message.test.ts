@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ExtMessaging } from "../src/types";
-
 let mockRuntime: any;
 
 vi.mock("../src/utils", () => ({

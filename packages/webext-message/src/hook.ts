@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+
 import { listen as messageListen } from "./message";
 import { listen as portListen } from "./port";
 import { relay } from "./relay";
-import type { ExtMessaging, MessageName } from "./types";
+import { type ExtMessaging, type MessageName } from "./types";
 
 /**
  * Used in any extension context to listen and send messages to background.

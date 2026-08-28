@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ExtMessaging } from "../src/types";
+import { type ExtMessaging } from "../src/types";
 
 const { relay, sendViaRelay } = await import("../src/relay");
 

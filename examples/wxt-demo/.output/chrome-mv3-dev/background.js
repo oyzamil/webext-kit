@@ -486,7 +486,7 @@ var background = (function() {
 		if (hostname.includes("*") && hostname.length > 1 && !hostname.startsWith("*.")) throw new InvalidMatchPattern(matchPattern, `If using a wildcard (*), it must go at the start of the hostname`);
 	}
 	//#endregion
-	//#region \0virtual:wxt-background-entrypoint?D:/Projects/ext-messaging/examples/wxt-demo/src/entrypoints/background.ts
+	//#region \0virtual:wxt-background-entrypoint?D:/Projects/webext-kit/examples/wxt-demo/src/entrypoints/background.ts
 	function print(method, ...args) {
 		if (typeof args[0] === "string") method(`[wxt] ${args.shift()}`, ...args);
 		else method("[wxt]", ...args);

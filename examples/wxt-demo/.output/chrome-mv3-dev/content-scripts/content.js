@@ -589,7 +589,7 @@
 		}
 	};
 	//#endregion
-	//#region \0virtual:wxt-content-script-isolated-world-entrypoint?D:/Projects/ext-messaging/examples/wxt-demo/src/entrypoints/content.ts
+	//#region \0virtual:wxt-content-script-isolated-world-entrypoint?D:/Projects/webext-kit/examples/wxt-demo/src/entrypoints/content.ts
 	function print(method, ...args) {
 		if (typeof args[0] === "string") method(`[wxt] ${args.shift()}`, ...args);
 		else method("[wxt]", ...args);

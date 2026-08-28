@@ -1,5 +1,5 @@
 {
-	"name": "webext-message-wxt-demo",
+	"name": "wxt-demo",
 	"version": "1.0.0",
 	"description": "WXT demo extension showing all webext-message features",
 	"type": "module",
@@ -16,18 +16,18 @@
 		"test": "vitest"
 	},
 	"dependencies": {
-		"webext-message": "workspace:*",
 		"react": "^19.2.8",
-		"react-dom": "^19.0.0"
+		"react-dom": "^19.0.0",
+		"webext-message": "workspace:*"
 	},
 	"devDependencies": {
-		"@types/chrome": "^0.2.7",
-		"@types/node": "^26.4.0",
-		"@types/react": "^19.2.18",
+		"@types/chrome": "catalog:",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
 		"@types/react-dom": "^19.2.5",
-		"typescript": "^7.0.2",
+		"typescript": "catalog:",
 		"vite": "^8.2.2",
-		"vitest": "^4.1.11",
+		"vitest": "catalog:",
 		"wxt": "^0.21.4"
 	}
 }
