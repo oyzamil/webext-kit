@@ -1,32 +1,32 @@
-import { describe, expect, test, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { initializeBackgroundMessaging } from "../src/background";
 import { sendToBackground } from "../src/index";
 import { listen as onMessage } from "../src/message";
 import {
 	getPort as getPortFn,
-	removePort,
 	listen as onPort,
+	removePort,
 } from "../src/port";
 
 // Test-only augmentation: MessagesMetadata / PortsMetadata are empty by
 // design (consumer apps declare their own via module augmentation). Without
 // this, every literal name below ('test-message', 'test-port', ...) is
 // rejected as `never`.
-declare module "../src/types" {
-	interface MessagesMetadata {
-		"test-message": unknown;
-		"failing-message": unknown;
-		"msg-1": unknown;
-		"msg-2": unknown;
-		"msg-3": unknown;
-	}
-	interface PortsMetadata {
-		"test-port": unknown;
-		"multi-port": unknown;
-		"reconnect-port": unknown;
-	}
-}
+// declare module "../src/types" {
+// 	interface MessagesMetadata {
+// 		"test-message": unknown;
+// 		"failing-message": unknown;
+// 		"msg-1": unknown;
+// 		"msg-2": unknown;
+// 		"msg-3": unknown;
+// 	}
+// 	interface PortsMetadata {
+// 		"test-port": unknown;
+// 		"multi-port": unknown;
+// 		"reconnect-port": unknown;
+// 	}
+// }
 
 describe("webext-message Integration", () => {
 	beforeEach(() => {

@@ -1,20 +1,19 @@
 import { relay as rawRelay, sendViaRelay as rawSendViaRelay } from './relay'
-import type { MessageName, ExtMessaging } from './types'
+import type { ExtMessaging, MessageName } from './types'
 import { getActiveTab, getExtRuntime, getExtTabs } from './utils'
-
-export type {
-  ExtMessaging,
-  MessageName,
-  PortName,
-  PortsMetadata,
-  MessagesMetadata,
-  OriginContext,
-} from './types'
 
 export { initializeBackgroundMessaging } from './background'
 export { listen as onMessage } from './message'
 export { getPort, listen as onPort, onPortConnect } from './port'
-export { startHub, broadcast, subscribe } from './pub-sub'
+export { broadcast, startHub, subscribe } from './pub-sub'
+export type {
+  ExtMessaging,
+  MessageName,
+  MessagesMetadata,
+  OriginContext,
+  PortName,
+  PortsMetadata,
+} from './types'
 
 /**
  * Send to Background Service Workers from Content Scripts or Extension pages.

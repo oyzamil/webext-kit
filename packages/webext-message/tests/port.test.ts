@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, vi, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 let mockRuntime: any;
 let mockPort: any;

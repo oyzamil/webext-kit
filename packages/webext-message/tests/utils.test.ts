@@ -1,11 +1,11 @@
-import { describe, expect, test, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 
 import {
+	getActiveTab,
 	getExtRuntime,
 	getExtTabs,
-	getActiveTab,
-	isSameOrigin,
 	getRuntimeContext,
+	isSameOrigin,
 } from "../src/utils";
 
 describe("getExtRuntime", () => {
