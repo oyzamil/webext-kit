@@ -108,6 +108,7 @@
 		"@types/react": "^19.2.18"
 	},
 	"dependencies": {
+		"biome": "^0.3.3",
 		"nanoid": "^6.0.1",
 		"unrun": "^0.3.1"
 	},
