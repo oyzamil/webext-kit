@@ -1,0 +1,13 @@
+{
+	"name": "webext-kit",
+	"description": "This is a mono repo for packages used in browser extension development.",
+	"private": true,
+	"version": "0.0.0",
+	"workspaces": [
+		"packages/*",
+		"examples/*"
+	],
+	"scripts": {
+		"git": "bun run ./scripts/git-helper.ts add-git"
+	}
+}

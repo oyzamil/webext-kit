@@ -1,0 +1,33 @@
+{
+	"name": "webext-message-wxt-demo",
+	"version": "1.0.0",
+	"description": "WXT demo extension showing all webext-message features",
+	"type": "module",
+	"scripts": {
+		"dev": "wxt",
+		"dev:firefox": "wxt -b firefox",
+		"build": "wxt build",
+		"build:firefox": "wxt build -b firefox",
+		"zip": "wxt zip",
+		"zip:firefox": "wxt zip -b firefox",
+		"check-types": "tsc --noEmit",
+		"clean": "rm -rf .wxt .output",
+		"postinstall": "wxt prepare",
+		"test": "vitest"
+	},
+	"dependencies": {
+		"webext-message": "workspace:*",
+		"react": "^19.2.8",
+		"react-dom": "^19.0.0"
+	},
+	"devDependencies": {
+		"@types/chrome": "^0.2.7",
+		"@types/node": "^26.4.0",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.5",
+		"typescript": "^7.0.2",
+		"vite": "^8.2.2",
+		"vitest": "^4.1.11",
+		"wxt": "^0.21.4"
+	}
+}

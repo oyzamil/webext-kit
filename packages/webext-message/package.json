@@ -1,0 +1,117 @@
+{
+	"name": "webext-message",
+	"version": "0.0.1",
+	"description": "Type-safe, zero-config messaging library for WXT browser extensions",
+	"type": "module",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		"./hook": {
+			"types": "./dist/hook.d.ts",
+			"import": "./dist/hook.js",
+			"require": "./dist/hook.cjs"
+		},
+		"./relay": {
+			"types": "./dist/relay.d.ts",
+			"import": "./dist/relay.js",
+			"require": "./dist/relay.cjs"
+		},
+		"./port": {
+			"types": "./dist/port.d.ts",
+			"import": "./dist/port.js",
+			"require": "./dist/port.cjs"
+		},
+		"./pub-sub": {
+			"types": "./dist/pub-sub.d.ts",
+			"import": "./dist/pub-sub.js",
+			"require": "./dist/pub-sub.cjs"
+		},
+		"./background": {
+			"types": "./dist/background.d.ts",
+			"import": "./dist/background.js",
+			"require": "./dist/background.cjs"
+		},
+		"./message": {
+			"types": "./dist/message.d.ts",
+			"import": "./dist/message.js",
+			"require": "./dist/message.cjs"
+		},
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"typesVersions": {
+		"*": {
+			"message": [
+				"./dist/message.d.ts"
+			],
+			"hook": [
+				"./dist/hook.d.ts"
+			],
+			"relay": [
+				"./dist/relay.d.ts"
+			],
+			"port": [
+				"./dist/port.d.ts"
+			],
+			"pub-sub": [
+				"./dist/pub-sub.d.ts"
+			],
+			"background": [
+				"./dist/background.d.ts"
+			]
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "npm run dev:compile & npm run dev:test",
+		"dev:compile": "tsdown --watch",
+		"dev:test": "vitest",
+		"build": "tsdown",
+		"test": "vitest run",
+		"lint": "biome lint src",
+		"lint:fix": "biome lint src --fix",
+		"format": "biome format src --write",
+		"format:check": "biome format src --check",
+		"prepublishOnly": "npm run build && npm run test && npm run lint"
+	},
+	"keywords": [
+		"react-hook",
+		"browser-extension",
+		"chrome-extension",
+		"wxt",
+		"messaging"
+	],
+	"author": "",
+	"license": "MIT",
+	"peerDependencies": {
+		"react": "^16.8.6 || ^17 || ^18 || ^19.0.0"
+	},
+	"peerDependenciesMeta": {
+		"react": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.11",
+		"@types/chrome": "^0.2.7",
+		"@types/node": "^26.4.0",
+		"jsdom": "^30.0.1",
+		"tsdown": "^0.22.14",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.11",
+		"react": "^19.2.8",
+		"@types/react": "^19.2.18"
+	},
+	"dependencies": {
+		"nanoid": "^6.0.1",
+		"unrun": "^0.3.1"
+	},
+	"workspaces": [
+		"examples/*"
+	]
+}
