@@ -1,0 +1,22 @@
+{
+	"name": "webext-store",
+	"version": "0.0.0",
+	"description": "Type-safe, zero-config storage library for browser extensions",
+	"type": "module",
+	"homepage": "https://github.com/oyzamil/webext-kit#readme",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/oyzamil/webext-kit.git"
+	},
+	"keywords": [
+		"react-hook",
+		"browser-extension",
+		"chrome-extension",
+		"wxt",
+		"storage",
+		"browser-extension-storage",
+		"extension-storage"
+	],
+	"author": "M.Muzammil <qazi.web@gmail.com> (https://muzammil.work/)",
+	"license": "MIT"
+}
