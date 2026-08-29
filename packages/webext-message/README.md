@@ -4,7 +4,7 @@ Type-safe, zero-config messaging library for browser extensions. Complete soluti
 
 [![npm version](https://img.shields.io/npm/v/webext-message.svg)](https://www.npmjs.com/package/webext-message)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7.0+-blue.svg)](https://www.typescriptlang.org/)
 
 ---
 
