@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createIframeUi, createShadowUi } from "../src/injector";
+import { createIframeUi, createShadowRootUi } from "../src/injector";
 import {
 	clearSharedStyleRegistry,
 	sharedStyleRegistrySize,
 	supportsConstructibleStylesheets,
 } from "../src/shared-styles";
 
-describe("createShadowUi — single anchor", () => {
+class MockResizeObserver {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+beforeEach(() => {
+	vi.stubGlobal("ResizeObserver", MockResizeObserver);
+});
+
+describe("createShadowRootUi — single anchor", () => {
 	beforeEach(() => {
 		document.body.innerHTML = '<div id="target"></div>';
 		clearSharedStyleRegistry();
@@ -17,7 +26,11 @@ describe("createShadowUi — single anchor", () => {
 		const onMount = vi.fn();
 		const target = document.getElementById("target") as Element;
 
-		const injector = createShadowUi({ name: "test", anchor: target, onMount });
+		const injector = createShadowRootUi({
+			name: "test",
+			anchor: target,
+			onMount,
+		});
 		injector.mount();
 
 		expect(onMount).toHaveBeenCalledTimes(1);
@@ -26,7 +39,7 @@ describe("createShadowUi — single anchor", () => {
 
 	it("creates a shadow root and passes it in the mount context", () => {
 		let capturedShadowRoot: ShadowRoot | undefined;
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "test",
 			anchor: "#target",
 			onMount: (ctx) => {
@@ -39,7 +52,7 @@ describe("createShadowUi — single anchor", () => {
 	});
 
 	it("appends the host next to the anchor by default (position: append)", () => {
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "test",
 			anchor: "#target",
 			onMount: (ctx) => {
@@ -54,7 +67,7 @@ describe("createShadowUi — single anchor", () => {
 	});
 
 	it('respects the "before" position', () => {
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "pos",
 			anchor: "#target",
 			position: "before",
@@ -68,7 +81,7 @@ describe("createShadowUi — single anchor", () => {
 
 	it("removes the host and calls onRemove on remove()", () => {
 		const onRemove = vi.fn();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "test",
 			anchor: "#target",
 			onMount: () => ({ cleanup: true }),
@@ -92,7 +105,7 @@ describe("createShadowUi — single anchor", () => {
 	});
 });
 
-describe("createShadowUi — batch anchors, separate shadow roots", () => {
+describe("createShadowRootUi — batch anchors, separate shadow roots", () => {
 	beforeEach(() => {
 		document.body.innerHTML = `
       <button class="btn">1</button>
@@ -104,7 +117,11 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 
 	it("mounts once per matched anchor", () => {
 		const onMount = vi.fn();
-		const injector = createShadowUi({ name: "batch", anchor: ".btn", onMount });
+		const injector = createShadowRootUi({
+			name: "batch",
+			anchor: ".btn",
+			onMount,
+		});
 		injector.mount();
 
 		expect(onMount).toHaveBeenCalledTimes(3);
@@ -113,7 +130,7 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 
 	it("gives each anchor its own shadow root when sharedRoot is false", () => {
 		const roots = new Set<ShadowRoot>();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "batch",
 			anchor: ".btn",
 			sharedRoot: false,
@@ -128,7 +145,7 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 
 	it("passes an incrementing index per anchor", () => {
 		const indices: number[] = [];
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "batch",
 			anchor: ".btn",
 			onMount: (ctx) => indices.push(ctx.index),
@@ -139,7 +156,7 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 	});
 
 	it("dedupes shared CSS across all per-anchor shadow roots (one sheet, not three)", () => {
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "batch",
 			anchor: ".btn",
 			css: ".btn-ui { color: hotpink; }",
@@ -152,7 +169,7 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 	});
 
 	it("removes every instance and host on remove()", () => {
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "batch",
 			anchor: ".btn",
 			onMount: () => {},
@@ -167,7 +184,7 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 	});
 });
 
-describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
+describe("createShadowRootUi — sharedRoot (Plasmo-overlay style)", () => {
 	beforeEach(() => {
 		document.body.innerHTML = `
       <div class="anchor">a</div>
@@ -179,7 +196,7 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 
 	it("mounts all anchors into a single shared shadow root", () => {
 		const roots = new Set<ShadowRoot>();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "overlay",
 			anchor: ".anchor",
 			sharedRoot: true,
@@ -194,7 +211,7 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 	});
 
 	it("creates only a single host element in the DOM", () => {
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "overlay",
 			anchor: ".anchor",
 			sharedRoot: true,
@@ -209,7 +226,7 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 
 	it("gives each anchor its own slot container inside the shared root", () => {
 		const containers = new Set<HTMLElement>();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "overlay",
 			anchor: ".anchor",
 			sharedRoot: true,
@@ -221,7 +238,7 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 	});
 
 	it("injects styles into the shared root only once", () => {
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "overlay",
 			anchor: ".anchor",
 			sharedRoot: true,
@@ -244,7 +261,7 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 
 	it("removes the single shared host and all slots on remove()", () => {
 		const onRemove = vi.fn();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "overlay",
 			anchor: ".anchor",
 			sharedRoot: true,
@@ -261,7 +278,7 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 	});
 });
 
-describe("createShadowUi — autoDetect", () => {
+describe("createShadowRootUi — autoDetect", () => {
 	beforeEach(() => {
 		document.body.innerHTML = '<div class="dyn">existing</div>';
 		clearSharedStyleRegistry();
@@ -269,7 +286,7 @@ describe("createShadowUi — autoDetect", () => {
 
 	it("mounts into elements matching the selector added after mount()", async () => {
 		const onMount = vi.fn();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "auto",
 			anchor: ".dyn",
 			autoDetect: true,
@@ -289,7 +306,7 @@ describe("createShadowUi — autoDetect", () => {
 
 	it("stops mounting new elements after remove()", async () => {
 		const onMount = vi.fn();
-		const injector = createShadowUi({
+		const injector = createShadowRootUi({
 			name: "auto",
 			anchor: ".dyn",
 			autoDetect: true,

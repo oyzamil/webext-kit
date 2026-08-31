@@ -1,15 +1,19 @@
 export type {
 	AnchorInput,
-	InjectOptions,
-	Injector,
-	InjectPosition,
+	ContentUi,
+	ContentUiOptions,
+	ContentUiPosition,
 	MountContext,
 	MountedInstance,
 	MountResult,
 } from "./types";
 
 export { resolveAnchors, watchForAnchors } from "./anchor";
-export { createIframeUi, createIntegratedUi, createShadowUi } from "./injector";
+export {
+	createIframeUi,
+	createIntegratedUi,
+	createShadowRootUi,
+} from "./injector";
 export {
 	applyStyles,
 	clearSharedStyleRegistry,

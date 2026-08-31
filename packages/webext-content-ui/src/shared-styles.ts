@@ -67,6 +67,10 @@ function getOrCreateSheet(styleKey: string, css: string): CSSStyleSheet | null {
 	return sheet;
 }
 
+function isDocument(node: ShadowRoot | Document): node is Document {
+	return node.nodeType === 9; // Node.DOCUMENT_NODE — realm-safe, instanceof Document ain't (fails cross-frame)
+}
+
 /**
  * Apply `css` to `root` (a ShadowRoot, or a Document for shadow-less
  * injection modes), deduplicating across calls that share the same
@@ -93,15 +97,13 @@ export function applyStyles(
 		}
 	}
 
-	const doc =
-		root instanceof Document ? root : (root.ownerDocument ?? document);
+	const doc = isDocument(root) ? root : (root.ownerDocument ?? document);
 	const style = doc.createElement("style");
 	style.textContent = css;
 	style.dataset.styleKey = styleKey;
-	(root instanceof Document
-		? (root.head ?? root.documentElement)
-		: root
-	).appendChild(style);
+	(isDocument(root) ? (root.head ?? root.documentElement) : root).appendChild(
+		style,
+	);
 }
 
 /** Remove every registered shared sheet. Mainly for test isolation. */

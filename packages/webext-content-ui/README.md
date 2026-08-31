@@ -31,9 +31,9 @@ stylesheets).
 ### Single element
 
 ```ts
-import { createShadowUi } from 'webext-content-ui';
+import { createShadowRootUi } from 'webext-content-ui';
 
-const injector = createShadowUi({
+const contentUi = createShadowRootUi({
   name: 'my-widget',
   anchor: '#target',
   css: '.btn { color: hotpink; }',
@@ -42,15 +42,15 @@ const injector = createShadowUi({
   },
 });
 
-injector.mount();
+contentUi.mount();
 // later
-injector.remove();
+contentUi.remove();
 ```
 
 ### Batch anchors, separate shadow roots, shared styles
 
 ```ts
-const injector = createShadowUi({
+const contentUi = createShadowRootUi({
   name: 'row-action',
   anchor: '.table-row', // selector, Element, or Element[]
   css: tailwindCss, // shared across every .table-row's shadow root
@@ -61,13 +61,13 @@ const injector = createShadowUi({
   },
 });
 
-injector.mount();
+contentUi.mount();
 ```
 
 ### Batch anchors, one shared shadow root (Plasmo-overlay style)
 
 ```ts
-const injector = createShadowUi({
+const contentUi = createShadowRootUi({
   name: 'overlay',
   anchor: '.highlight-target',
   sharedRoot: true, // ONE shadow root for all matched anchors
@@ -77,15 +77,24 @@ const injector = createShadowUi({
   },
 });
 
-injector.mount();
+contentUi.mount();
 ```
+
+Any `:root` selector in your `css` is automatically rewritten to `:host`,
+since `:root` doesn't work inside a shadow tree.
+
+By default, `keyup`/`keydown`/`keypress` events are stopped from bubbling
+past the shadow boundary (`isolateEvents: true`). Pass a custom event-name
+array, or `false` to disable, if your widget needs those events to reach
+the host page.
+
 
 ### Integrated UI (no shadow root, light DOM)
 
 ```ts
 import { createIntegratedUi } from 'webext-content-ui';
 
-const injector = createIntegratedUi({
+const contentUi = createIntegratedUi({
   name: 'inline-badge',
   anchor: '.item-title',
   onMount: ({ container }) => {
@@ -93,7 +102,7 @@ const injector = createIntegratedUi({
   },
 });
 
-injector.mount();
+contentUi.mount();
 ```
 
 Content lands directly in the page's DOM — no shadow boundary. Page CSS
@@ -107,7 +116,7 @@ page's own `<head>`, deduped by `styleKey`.
 ```ts
 import { createIframeUi } from 'webext-content-ui';
 
-const injector = createIframeUi({
+const contentUi = createIframeUi({
   name: 'sandboxed-widget',
   anchor: '#target',
   css: '.btn { color: hotpink; }',
@@ -116,7 +125,7 @@ const injector = createIframeUi({
   },
 });
 
-injector.mount();
+contentUi.mount();
 ```
 
 Each anchor gets an `<iframe>` — a separate `window`/`document`, so no CSS
@@ -128,18 +137,23 @@ forced into a stable html/head/body via `document.write` right after
 insertion, so `contentDocument` is ready to use immediately, no load event
 to wait for. `hostTag` doesn't apply here (the host is always `<iframe>`).
 
+By default the iframe auto-resizes to match its injected content's
+measured width/height (via `ResizeObserver`, watchin the container inside
+`contentDocument`). Set `autoSize: false` to keep a fixed size instead and
+control `iframe` dimensions yourself in `onMount`.
+
 ## API
 
-### `createShadowUi(options): Injector`
-### `createIntegratedUi(options): Injector`
-### `createIframeUi(options): Injector`
+### `createShadowRootUi(options): ContentUi`
+### `createIntegratedUi(options): ContentUi`
+### `createIframeUi(options): ContentUi`
 
 Same `InjectOptions` shape across all three — they differ only in where
 content ends up:
 
 | Function | Isolation | Host element |
 |---|---|---|
-| `createShadowUi` | Shadow DOM (style-isolated, same document) | `hostTag`, default `'div'` |
+| `createShadowRootUi` | Shadow DOM (style-isolated, same document) | `hostTag`, default `'div'` |
 | `createIntegratedUi` | None — light DOM, inherits page styles | `hostTag`, default `'div'` |
 | `createIframeUi` | Full — separate document/window | always `<iframe>`, `hostTag` ignored |
 
@@ -150,25 +164,31 @@ content ends up:
 | `position` | `'before' \| 'after' \| 'append' \| 'prepend' \| 'replace'` | `'append'` | Placement relative to each anchor |
 | `sharedRoot` | `boolean` | `false` | Mount all anchors into one shared host (shadow root / light-DOM host / iframe) |
 | `sharedStyle` | `boolean` | `true` | Dedupe CSS across hosts via `adoptedStyleSheets` |
-| `styleKey` | `string` | `name` | Key used to dedupe styles across separate injector instances |
+| `styleKey` | `string` | `name` | Key used to dedupe styles across separate contentUi instances |
 | `css` | `string` | `''` | CSS text to inject |
 | `autoDetect` | `boolean` | `false` | Watch the DOM for new anchors matching the selector (string anchors only) |
-| `hostTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the host element (`createShadowUi`/`createIntegratedUi` only) |
+| `hostTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the host element (`createShadowRootUi`/`createIntegratedUi` only) |
 | `containerTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the inner container/slot element(s) |
+| `isolateEvents` | `boolean \| string[]` | `true` | Shadow mode only. Stop propagation of events tryin bubble out shadow root — `true` for default set (`keyup`, `keydown`, `keypress`), custom array for own list, `false` to disable |
+| `autoSize` | `boolean` | `true` | Iframe mode only. Auto-resize the iframe host to match injected content's measured size via `ResizeObserver` |
 | `onMount` | `(ctx: MountContext) => MountResult` | — | Called per matched anchor |
 | `onRemove` | `(result, ctx) => void` | — | Called per anchor on removal |
 
-`Injector` exposes `mount()`, `remove()`, and `instances()`.
+`ContentUi` exposes `mount()`, `remove()`, and `instances()`.
 
-`MountContext.shadowRoot` is only set by `createShadowUi`; `MountContext.iframe`
+`MountContext.shadowRoot` is only set by `createShadowRootUi`; `MountContext.iframe`
 is only set by `createIframeUi`. `createIntegratedUi` sets neither.
+`MountContext.host` and `MountContext.wrapper` (alias of `host`) are set on
+every mode. `MountContext.shadowRoot` is only set by `createShadowUi`;
+`MountContext.iframe` is only set by `createIframeUi`. `createIntegratedUi`
+sets neither.
 | `autoDetect` | `boolean` | `false` | Watch the DOM for new anchors matching the selector (string anchors only) |
 | `hostTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the shadow host element |
 | `containerTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the inner container/slot element(s) |
 | `onMount` | `(ctx: MountContext) => MountResult` | — | Called per matched anchor |
 | `onRemove` | `(result, ctx) => void` | — | Called per anchor on removal |
 
-`Injector` exposes `mount()`, `remove()`, and `instances()`.
+`ContentUi` exposes `mount()`, `remove()`, and `instances()`.
 
 ### Anchors
 
@@ -219,23 +239,12 @@ invisible either way — but if the anchor lives somewhere with strict child
 rules (a `<table>`, a `<ul>`), set `hostTag`/`containerTag` to match:
 
 ```ts
-createShadowUi({
+createShadowRootUi({
   name: 'row-badge',
   anchor: 'tr.data-row',
   hostTag: 'td',
   onMount: ({ container }) => { container.textContent = '✓'; },
 });
-```
-
-## Development
-
-```bash
-npm install
-npm run build       # tsdown -> dist/ (ESM + CJS + .d.ts)
-npm test            # vitest
-npm run test:coverage
-npm run lint         # biome check
-npm run typecheck    # tsc --noEmit
 ```
 
 ## License

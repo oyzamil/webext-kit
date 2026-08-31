@@ -27,7 +27,7 @@ export type AnchorInput =
 	| Array<string | Element | AnchorResolver>;
 
 /** Where the shadow host is placed relative to its matched anchor element. */
-export type InjectPosition =
+export type ContentUiPosition =
 	| "before"
 	| "after"
 	| "append"
@@ -38,9 +38,11 @@ export type InjectPosition =
 export type MountResult = unknown;
 
 export interface MountContext {
+	host: HTMLElement;
+	wrapper: HTMLElement;
 	/** The content container you render into. */
 	container: HTMLElement;
-	/** The shadow root, when this injector uses one (createShadowUi only). */
+	/** The shadow root, when this injector uses one (createShadowRootUi only). */
 	shadowRoot?: ShadowRoot;
 	/** The iframe element, when this injector uses one (createIframeUi only). */
 	iframe?: HTMLIFrameElement;
@@ -50,7 +52,7 @@ export interface MountContext {
 	index: number;
 }
 
-export interface InjectOptions {
+export interface ContentUiOptions {
 	/** Unique name for this injection; used as the host element tag/id prefix. */
 	name: string;
 
@@ -58,7 +60,7 @@ export interface InjectOptions {
 	anchor: AnchorInput;
 
 	/** Placement of the shadow host relative to each matched anchor. Default: 'append'. */
-	position?: InjectPosition;
+	position?: ContentUiPosition;
 
 	/**
 	 * When true, all matched anchors share ONE shadow root + one style injection
@@ -67,6 +69,19 @@ export interface InjectOptions {
 	 * CSSStyleSheet (adoptedStyleSheets) rather than re-injected per root.
 	 */
 	sharedRoot?: boolean;
+
+	/**
+	 * When enabled, `event.stopPropagation` called on events tryin bubble out
+	 * of shadow root.
+	 *
+	 * - `true` (default) — stop propagation of default set,
+	 *   `["keyup", "keydown", "keypress"]`
+	 * - array of event names — stop propagation of custom list
+	 * - `false` — disable
+	 *
+	 * @default true
+	 */
+	isolateEvents?: boolean | string[];
 
 	/**
 	 * When true (default), CSS text passed via `css` is shared across all
@@ -92,6 +107,14 @@ export interface InjectOptions {
 	autoDetect?: boolean;
 
 	/**
+	 * Auto-resize iframe host to match injected content's measured size.
+	 * Ignored by shadow/integrated modes (no iframe box to size).
+	 *
+	 * @default true
+	 */
+	autoSize?: boolean;
+
+	/**
 	 * Tag name for the shadow host element. Default: 'div'. Host has
 	 * `display: contents` applied, so pick a tag valid in the anchor's
 	 * context (e.g. 'tr' inside a `<table>`, 'li' inside a list).
@@ -115,9 +138,11 @@ export interface MountedInstance {
 	iframe?: HTMLIFrameElement;
 	container: HTMLElement;
 	result: MountResult;
+	isolateCleanup?: (() => void) | null;
+	sizeCleanup?: (() => void) | null;
 }
 
-export interface Injector {
+export interface ContentUi {
 	/** Mount into every anchor currently matching, and start auto-detect if enabled. */
 	mount: () => void;
 	/** Unmount all instances and stop observing. */

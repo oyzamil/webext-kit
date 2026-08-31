@@ -1,8 +1,8 @@
 import { resolveAnchors, watchForAnchors } from "./anchor";
 import { applyStyles } from "./shared-styles";
 import {
-	type InjectOptions,
-	type Injector,
+	type ContentUi,
+	type ContentUiOptions,
 	type MountContext,
 	type MountedInstance,
 	type MountResult,
@@ -17,10 +17,26 @@ function makeHost(name: string, tag: string): HTMLElement {
 	return host;
 }
 
+const DEFAULT_ISOLATED_EVENTS = ["keyup", "keydown", "keypress"];
+
+function isolateShadowEvents(
+	shadowRoot: ShadowRoot,
+	isolateEvents: boolean | string[] | undefined,
+): (() => void) | null {
+	if (isolateEvents === false) return null;
+	const events = Array.isArray(isolateEvents)
+		? isolateEvents
+		: DEFAULT_ISOLATED_EVENTS;
+	const stop = (e: Event) => e.stopPropagation();
+	events.forEach((evt) => shadowRoot.addEventListener(evt, stop));
+	return () =>
+		events.forEach((evt) => shadowRoot.removeEventListener(evt, stop));
+}
+
 function place(
 	host: HTMLElement,
 	anchor: Element,
-	position: NonNullable<InjectOptions["position"]>,
+	position: NonNullable<ContentUiOptions["position"]>,
 ): void {
 	switch (position) {
 		case "before":
@@ -41,166 +57,9 @@ function place(
 }
 
 /**
- * Create a shadow-DOM injector.
- *
- * - Single anchor or array/selector of anchors ("batch").
- * - `sharedRoot: true` mounts every matched anchor's content into ONE shared
- *   shadow root (Plasmo overlay-anchor style) — use when the anchors should
- *   render as a single logical UI.
- * - `sharedRoot: false` (default) gives each anchor its own shadow root, but
- *   `sharedStyle` (default true) still dedupes the CSS text across all of
- *   them (and across other injectors using the same styleKey) via
- *   adoptedStyleSheets instead of re-injecting a <style> per root.
- */
-export function createShadowUi(options: InjectOptions): Injector {
-	const {
-		name,
-		anchor,
-		position = "append",
-		sharedRoot = false,
-		sharedStyle = true,
-		styleKey = name,
-		css = "",
-		autoDetect = false,
-		hostTag = "div",
-		containerTag = "div",
-		onMount,
-		onRemove,
-	} = options;
-
-	let mounted: MountedInstance[] = [];
-	let sharedHost: HTMLElement | null = null;
-	let sharedShadow: ShadowRoot | null = null;
-	let sharedContainer: HTMLElement | null = null;
-	let stopWatching: (() => void) | null = null;
-	const known = new Set<Element>();
-
-	function ensureSharedRoot(firstAnchor: Element): {
-		shadowRoot: ShadowRoot;
-		container: HTMLElement;
-	} {
-		if (sharedShadow && sharedContainer) {
-			return { shadowRoot: sharedShadow, container: sharedContainer };
-		}
-
-		const host = makeHost(name, hostTag);
-		host.setAttribute("data-webext-content-ui-shared", "true");
-		place(host, firstAnchor, position);
-
-		const shadowRoot = host.attachShadow({ mode: "open" });
-		const container = document.createElement(containerTag);
-		container.className = `${TAG_PREFIX}-container`;
-		shadowRoot.appendChild(container);
-
-		applyStyles(shadowRoot, css, styleKey, sharedStyle);
-
-		sharedHost = host;
-		sharedShadow = shadowRoot;
-		sharedContainer = container;
-
-		return { shadowRoot, container };
-	}
-
-	function mountOne(el: Element, index: number): void {
-		if (known.has(el) && !sharedRoot) {
-			// already mounted individually
-			return;
-		}
-		known.add(el);
-
-		let shadowRoot: ShadowRoot;
-		let container: HTMLElement;
-		let host: HTMLElement;
-
-		if (sharedRoot) {
-			const shared = ensureSharedRoot(el);
-			shadowRoot = shared.shadowRoot;
-			host = sharedHost!;
-			// Each anchor still gets its own slot inside the shared container so
-			// per-anchor content doesn't collide.
-			container = document.createElement(containerTag);
-			container.className = `${TAG_PREFIX}-slot`;
-			shadowRoot
-				.querySelector(`.${TAG_PREFIX}-container`)
-				?.appendChild(container);
-		} else {
-			host = makeHost(name, hostTag);
-			place(host, el, position);
-			shadowRoot = host.attachShadow({ mode: "open" });
-			container = document.createElement(containerTag);
-			container.className = `${TAG_PREFIX}-container`;
-			shadowRoot.appendChild(container);
-			applyStyles(shadowRoot, css, styleKey, sharedStyle);
-		}
-
-		const ctx: MountContext = { container, shadowRoot, anchor: el, index };
-		const result: MountResult = onMount(ctx);
-
-		mounted.push({ anchor: el, host, shadowRoot, container, result });
-	}
-
-	function mountAll(): void {
-		const anchors = resolveAnchors(anchor);
-		anchors.forEach((el, i) => mountOne(el, i));
-
-		if (autoDetect && typeof anchor === "string") {
-			// A separate set: watchForAnchors marks elements "known" as soon as it
-			// sees them (before onNew runs), which would make mountOne's own
-			// dedup guard below skip the mount entirely if they shared one set.
-			const watchKnown = new Set(known);
-			stopWatching = watchForAnchors(anchor, watchKnown, (el) =>
-				mountOne(el, mounted.length),
-			);
-		}
-	}
-
-	function unmountInstance(instance: MountedInstance): void {
-		const ctx: MountContext = {
-			container: instance.container,
-			...(instance.shadowRoot ? { shadowRoot: instance.shadowRoot } : {}),
-			anchor: instance.anchor,
-			index: mounted.indexOf(instance),
-		};
-		onRemove?.(instance.result, ctx);
-
-		if (sharedRoot) {
-			instance.container.remove();
-		}
-	}
-
-	return {
-		mount: mountAll,
-		remove: () => {
-			stopWatching?.();
-			stopWatching = null;
-
-			for (const instance of mounted) {
-				unmountInstance(instance);
-			}
-
-			if (sharedRoot) {
-				sharedHost?.remove();
-				sharedHost = null;
-				sharedShadow = null;
-				sharedContainer = null;
-			} else {
-				for (const instance of mounted) {
-					instance.host.remove();
-				}
-			}
-
-			mounted = [];
-			known.clear();
-		},
-		instances: () => [...mounted],
-	};
-}
-
-/**
  * Tracks which (document, styleKey) pairs already got their <style>/adopted
- * sheet applied, so shadow-less modes (integrated/iframe with sharedRoot:
- * false) don't re-append the same styles once per anchor when they all
- * land in the same document.
+ * sheet applied, so light-DOM modes that reuse the real page document don't
+ * re-append the same styles once per anchor.
  */
 const docStyleApplied = new WeakMap<Document, Set<string>>();
 
@@ -221,18 +80,123 @@ function applyDocStyleOnce(
 	applyStyles(doc, css, styleKey, shared);
 }
 
+function observeAutoSize(
+	iframe: HTMLIFrameElement,
+	container: HTMLElement,
+): () => void {
+	const ro = new ResizeObserver(() => {
+		// container size drive iframe box — read from inside frame's own layout
+		const { width, height } = container.getBoundingClientRect();
+		iframe.style.width = `${Math.ceil(width)}px`;
+		iframe.style.height = `${Math.ceil(height)}px`;
+	});
+	ro.observe(container);
+	return () => ro.disconnect();
+}
+
 /**
- * Create a light-DOM injector — no shadow root. Content is appended
- * directly into the page's own DOM, so page CSS can affect it (and vice
- * versa). Use when you WANT to inherit page styles, or need the injected
- * markup to participate in the page's own layout/selectors. Otherwise
- * prefer `createShadowUi` for style isolation.
- *
- * Same anchor/batch/sharedRoot/autoDetect semantics as `createShadowUi`.
- * `css`, when given, is injected once into the page's own `<head>` (deduped
- * by `styleKey`, not per-anchor).
+ * Backend = only bit that differs between shadow/integrated/iframe modes:
+ * how host element made, how its style scope + first container set up, and
+ * (for shadow/iframe) extra MountContext field to expose.
  */
-export function createIntegratedUi(options: InjectOptions): Injector {
+interface Backend {
+	makeHost(name: string): HTMLElement;
+	setup(
+		host: HTMLElement,
+		containerTag: string,
+		css: string,
+		styleKey: string,
+		sharedStyle: boolean,
+		autoSize?: boolean,
+	): { container: HTMLElement; cleanup?: () => void }; // <- was just HTMLElement
+	extraCtx?(host: HTMLElement): Partial<MountContext>;
+	isolate?(
+		host: HTMLElement,
+		isolateEvents: boolean | string[] | undefined,
+	): (() => void) | null;
+}
+
+const shadowBackend = (hostTag: string): Backend => ({
+	makeHost: (name) => makeHost(name, hostTag),
+	setup(host, containerTag, css, styleKey, sharedStyle) {
+		const shadowRoot = host.attachShadow({ mode: "open" });
+		const container = document.createElement(containerTag);
+		container.className = `${TAG_PREFIX}-container`;
+		shadowRoot.appendChild(container);
+		applyStyles(
+			shadowRoot,
+			css.replaceAll(":root", ":host"),
+			styleKey,
+			sharedStyle,
+		);
+		return { container }; // <- wrapped, no cleanup needed
+	},
+	extraCtx: (host) => (host.shadowRoot ? { shadowRoot: host.shadowRoot } : {}),
+	isolate: (host, isolateEvents) =>
+		host.shadowRoot
+			? isolateShadowEvents(host.shadowRoot, isolateEvents)
+			: null,
+});
+
+const integratedBackend = (hostTag: string): Backend => ({
+	makeHost: (name) => makeHost(name, hostTag),
+	setup(host, containerTag, css, styleKey, sharedStyle) {
+		const container = document.createElement(containerTag);
+		container.className = `${TAG_PREFIX}-container`;
+		host.appendChild(container);
+		applyDocStyleOnce(document, css, styleKey, sharedStyle);
+		return { container }; // <- wrapped
+	},
+});
+
+/**
+ * `hostTag` ignored here — host always `<iframe>`; `containerTag` still
+ * controls element made inside it. Iframe never navigated (no src/srcdoc):
+ * kept on its initial same-origin doc, forced into stable html/head/body
+ * via synchronous `document.write` right after insertion (some browsers
+ * don't finish populating that doc's `<body>` synchronously on own) — no
+ * load event to wait for, contentDocument ready right after mount.
+ */
+const iframeBackend: Backend = {
+	makeHost: (name) => {
+		const iframe = document.createElement("iframe");
+		iframe.setAttribute("data-webext-content-ui", name);
+		iframe.style.border = "none";
+		iframe.style.height = "0";
+		iframe.style.display = "block";
+		return iframe;
+	},
+	setup(host, containerTag, css, styleKey, sharedStyle, autoSize) {
+		const iframe = host as HTMLIFrameElement;
+		const doc = iframe.contentDocument;
+		if (!doc) {
+			throw new Error(
+				`webext-content-ui: iframe for "${iframe.getAttribute("data-webext-content-ui")}" has no contentDocument — was it placed in DOM before mounting?`,
+			);
+		}
+		doc.open();
+		doc.write("<!doctype html><html><head></head><body></body></html>");
+		doc.close();
+
+		const container = doc.createElement(containerTag);
+		container.className = `${TAG_PREFIX}-container`;
+		doc.body.appendChild(container);
+		applyStyles(doc, css, styleKey, sharedStyle);
+
+		if (autoSize !== false) {
+			return { container, cleanup: observeAutoSize(iframe, container) };
+		}
+
+		return { container };
+	},
+	extraCtx: (host) => ({ iframe: host as HTMLIFrameElement }),
+};
+
+/** Generic core — shared by all three public factories below. */
+function createInjector(
+	options: ContentUiOptions,
+	backend: Backend,
+): ContentUi {
 	const {
 		name,
 		anchor,
@@ -242,8 +206,9 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 		styleKey = name,
 		css = "",
 		autoDetect = false,
-		hostTag = "div",
 		containerTag = "div",
+		isolateEvents = true,
+		autoSize = true,
 		onMount,
 		onRemove,
 	} = options;
@@ -251,24 +216,41 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 	let mounted: MountedInstance[] = [];
 	let sharedHost: HTMLElement | null = null;
 	let sharedContainer: HTMLElement | null = null;
+	let sharedSizeCleanup: (() => void) | null = null;
+	let sharedIsolateCleanup: (() => void) | null = null;
 	let stopWatching: (() => void) | null = null;
 	const known = new Set<Element>();
 
-	function ensureSharedContainer(firstAnchor: Element): HTMLElement {
-		if (sharedHost && sharedContainer) return sharedContainer;
-
-		const host = makeHost(name, hostTag);
+	function ensureShared(firstAnchor: Element) {
+		if (sharedHost && sharedContainer) {
+			return { host: sharedHost, container: sharedContainer };
+		}
+		const host = backend.makeHost(name);
 		host.setAttribute("data-webext-content-ui-shared", "true");
 		place(host, firstAnchor, position);
-
-		const container = document.createElement(containerTag);
-		container.className = `${TAG_PREFIX}-container`;
-		host.appendChild(container);
-		applyDocStyleOnce(document, css, styleKey, sharedStyle);
-
+		const { container, cleanup } = backend.setup(
+			host,
+			containerTag,
+			css,
+			styleKey,
+			sharedStyle,
+			autoSize,
+		);
+		sharedIsolateCleanup = backend.isolate?.(host, isolateEvents) ?? null;
+		sharedSizeCleanup = cleanup ?? null;
 		sharedHost = host;
 		sharedContainer = container;
-		return container;
+		return { host, container };
+	}
+
+	// Each anchor sharing a root still gets own slot, so per-anchor content
+	// doesn't collide. Slot made in container's own document — matters for
+	// iframe, where container lives in contentDocument, not main doc.
+	function makeSlot(container: HTMLElement): HTMLElement {
+		const slot = container.ownerDocument.createElement(containerTag);
+		slot.className = `${TAG_PREFIX}-slot`;
+		container.appendChild(slot);
+		return slot;
 	}
 
 	function mountOne(el: Element, index: number): void {
@@ -277,26 +259,49 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 
 		let host: HTMLElement;
 		let container: HTMLElement;
+		let isolateCleanup: (() => void) | null = null;
+		let sizeCleanup: (() => void) | null = null;
 
 		if (sharedRoot) {
-			const shared = ensureSharedContainer(el);
-			host = sharedHost!;
-			container = document.createElement(containerTag);
-			container.className = `${TAG_PREFIX}-slot`;
-			shared.appendChild(container);
+			const shared = ensureShared(el);
+			host = shared.host;
+			container = makeSlot(shared.container);
 		} else {
-			host = makeHost(name, hostTag);
+			host = backend.makeHost(name);
 			place(host, el, position);
-			container = document.createElement(containerTag);
-			container.className = `${TAG_PREFIX}-container`;
-			host.appendChild(container);
-			applyDocStyleOnce(document, css, styleKey, sharedStyle);
+			const setupResult = backend.setup(
+				host,
+				containerTag,
+				css,
+				styleKey,
+				sharedStyle,
+				autoSize,
+			);
+			container = setupResult.container;
+			sizeCleanup = setupResult.cleanup ?? null;
+			isolateCleanup = backend.isolate?.(host, isolateEvents) ?? null;
 		}
 
-		const ctx: MountContext = { container, anchor: el, index };
+		const extra = backend.extraCtx?.(host) ?? {};
+		const ctx: MountContext = {
+			host,
+			wrapper: host,
+			container,
+			anchor: el,
+			index,
+			...extra,
+		};
 		const result: MountResult = onMount(ctx);
 
-		mounted.push({ anchor: el, host, container, result });
+		mounted.push({
+			anchor: el,
+			host,
+			container,
+			result,
+			isolateCleanup,
+			sizeCleanup,
+			...extra,
+		} as MountedInstance);
 	}
 
 	function mountAll(): void {
@@ -304,6 +309,9 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 		anchors.forEach((el, i) => mountOne(el, i));
 
 		if (autoDetect && typeof anchor === "string") {
+			// Separate set: watchForAnchors marks elements "known" soon as it
+			// sees them (before onNew runs) — sharing one set with mountOne's
+			// dedup guard would make it skip the mount entirely.
 			const watchKnown = new Set(known);
 			stopWatching = watchForAnchors(anchor, watchKnown, (el) =>
 				mountOne(el, mounted.length),
@@ -313,15 +321,19 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 
 	function unmountInstance(instance: MountedInstance): void {
 		const ctx: MountContext = {
+			host: instance.host,
+			wrapper: instance.host,
 			container: instance.container,
 			anchor: instance.anchor,
 			index: mounted.indexOf(instance),
+			...(instance.shadowRoot ? { shadowRoot: instance.shadowRoot } : {}),
+			...(instance.iframe ? { iframe: instance.iframe } : {}),
 		};
 		onRemove?.(instance.result, ctx);
+		instance.isolateCleanup?.();
+		instance.sizeCleanup?.();
 
-		if (sharedRoot) {
-			instance.container.remove();
-		}
+		if (sharedRoot) instance.container.remove();
 	}
 
 	return {
@@ -329,19 +341,18 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 		remove: () => {
 			stopWatching?.();
 			stopWatching = null;
-
-			for (const instance of mounted) {
-				unmountInstance(instance);
-			}
+			for (const instance of mounted) unmountInstance(instance);
 
 			if (sharedRoot) {
 				sharedHost?.remove();
 				sharedHost = null;
 				sharedContainer = null;
+				sharedIsolateCleanup?.();
+				sharedIsolateCleanup = null;
+				sharedSizeCleanup?.(); // <- call
+				sharedSizeCleanup = null;
 			} else {
-				for (const instance of mounted) {
-					instance.host.remove();
-				}
+				for (const instance of mounted) instance.host.remove();
 			}
 
 			mounted = [];
@@ -351,166 +362,14 @@ export function createIntegratedUi(options: InjectOptions): Injector {
 	};
 }
 
-/**
- * Create an iframe injector. Each matched anchor (or all of them, with
- * `sharedRoot: true`) gets an `<iframe>` whose content document is your
- * container — full isolation (separate `window`/`document`, no page CSS
- * leaks either direction), heavier than a shadow root. The iframe is never
- * navigated (no `src`/`srcdoc`): it keeps its initial same-origin document,
- * synchronously forced into a stable html/head/body via `document.write`
- * right after insertion (some browsers don't finish populating that
- * document's `<body>` synchronously on their own) — no load event to wait
- * for, `contentDocument` is ready to use immediately after mount.
- *
- * `hostTag` is ignored (the host is always an `<iframe>`); `containerTag`
- * still controls the element created inside it.
- */
-export function createIframeUi(options: InjectOptions): Injector {
-	const {
-		name,
-		anchor,
-		position = "append",
-		sharedRoot = false,
-		sharedStyle = true,
-		styleKey = name,
-		css = "",
-		autoDetect = false,
-		containerTag = "div",
-		onMount,
-		onRemove,
-	} = options;
+export function createShadowRootUi(options: ContentUiOptions): ContentUi {
+	return createInjector(options, shadowBackend(options.hostTag ?? "div"));
+}
 
-	let mounted: MountedInstance[] = [];
-	let sharedHost: HTMLIFrameElement | null = null;
-	let sharedContainer: HTMLElement | null = null;
-	let stopWatching: (() => void) | null = null;
-	const known = new Set<Element>();
+export function createIntegratedUi(options: ContentUiOptions): ContentUi {
+	return createInjector(options, integratedBackend(options.hostTag ?? "div"));
+}
 
-	function makeIframeHost(): HTMLIFrameElement {
-		const iframe = document.createElement("iframe");
-		iframe.setAttribute("data-webext-content-ui", name);
-		iframe.style.border = "none";
-		return iframe;
-	}
-
-	function containerFor(iframe: HTMLIFrameElement): HTMLElement {
-		const doc = iframe.contentDocument;
-		if (!doc) {
-			throw new Error(
-				`webext-content-ui: iframe for "${name}" has no contentDocument — was it placed in the DOM before mounting?`,
-			);
-		}
-
-		// The initial about:blank document isn't reliably populated with a
-		// <body> synchronously right after insertion in every browser/context
-		// (seen in Chrome content scripts) — touching doc.body too early can
-		// race with the browser's own setup and throw "HierarchyRequestError:
-		// Only one element on document allowed". A synchronous document.write
-		// forces a stable html/head/body structure immediately; it doesn't
-		// navigate or fire a load event, so this stays fully synchronous.
-		doc.open();
-		doc.write("<!doctype html><html><head></head><body></body></html>");
-		doc.close();
-
-		const container = doc.createElement(containerTag);
-		container.className = `${TAG_PREFIX}-container`;
-		doc.body.appendChild(container);
-		applyStyles(doc, css, styleKey, sharedStyle);
-		return container;
-	}
-
-	function ensureSharedHost(firstAnchor: Element): {
-		iframe: HTMLIFrameElement;
-		container: HTMLElement;
-	} {
-		if (sharedHost && sharedContainer) {
-			return { iframe: sharedHost, container: sharedContainer };
-		}
-
-		const iframe = makeIframeHost();
-		iframe.setAttribute("data-webext-content-ui-shared", "true");
-		place(iframe, firstAnchor, position); // must attach before contentDocument exists
-		const container = containerFor(iframe);
-
-		sharedHost = iframe;
-		sharedContainer = container;
-		return { iframe, container };
-	}
-
-	function mountOne(el: Element, index: number): void {
-		if (known.has(el) && !sharedRoot) return;
-		known.add(el);
-
-		let iframe: HTMLIFrameElement;
-		let container: HTMLElement;
-
-		if (sharedRoot) {
-			const shared = ensureSharedHost(el);
-			iframe = shared.iframe;
-			container = shared.container.ownerDocument.createElement(containerTag);
-			container.className = `${TAG_PREFIX}-slot`;
-			shared.container.appendChild(container);
-		} else {
-			iframe = makeIframeHost();
-			place(iframe, el, position); // must attach before contentDocument exists
-			container = containerFor(iframe);
-		}
-
-		const ctx: MountContext = { container, anchor: el, index, iframe };
-		const result: MountResult = onMount(ctx);
-
-		mounted.push({ anchor: el, host: iframe, iframe, container, result });
-	}
-
-	function mountAll(): void {
-		const anchors = resolveAnchors(anchor);
-		anchors.forEach((el, i) => mountOne(el, i));
-
-		if (autoDetect && typeof anchor === "string") {
-			const watchKnown = new Set(known);
-			stopWatching = watchForAnchors(anchor, watchKnown, (el) =>
-				mountOne(el, mounted.length),
-			);
-		}
-	}
-
-	function unmountInstance(instance: MountedInstance): void {
-		const ctx: MountContext = {
-			container: instance.container,
-			anchor: instance.anchor,
-			index: mounted.indexOf(instance),
-			...(instance.iframe ? { iframe: instance.iframe } : {}),
-		};
-		onRemove?.(instance.result, ctx);
-
-		if (sharedRoot) {
-			instance.container.remove();
-		}
-	}
-
-	return {
-		mount: mountAll,
-		remove: () => {
-			stopWatching?.();
-			stopWatching = null;
-
-			for (const instance of mounted) {
-				unmountInstance(instance);
-			}
-
-			if (sharedRoot) {
-				sharedHost?.remove();
-				sharedHost = null;
-				sharedContainer = null;
-			} else {
-				for (const instance of mounted) {
-					instance.host.remove();
-				}
-			}
-
-			mounted = [];
-			known.clear();
-		},
-		instances: () => [...mounted],
-	};
+export function createIframeUi(options: ContentUiOptions): ContentUi {
+	return createInjector(options, iframeBackend);
 }

@@ -1,5 +1,5 @@
 import { createRoot, type Root } from "react-dom/client";
-import { createIframeUi, type Injector } from "webext-content-ui";
+import { createShadowRootUi, type Injector } from "webext-content-ui";
 
 // `?inline` gives us the compiled Tailwind CSS as a plain string (Vite feature),
 // so webext-content-ui can hand it to `adoptedStyleSheets` itself instead of
@@ -16,9 +16,9 @@ export default defineContentScript({
 		function mount() {
 			if (injector) return;
 
-			injector = createIframeUi({
+			injector = createShadowRootUi({
 				name: "webext-content-ui-demo-badge",
-				anchor: "h1",
+				anchor: "h2",
 				position: "after",
 				sharedRoot: false, // each h2 gets its own shadow root...
 				sharedStyle: true, // ...but they all share ONE Tailwind stylesheet
