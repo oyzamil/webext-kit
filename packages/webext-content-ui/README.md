@@ -5,6 +5,13 @@ optional shared styles across shadow roots. Combines Plasmo's batch-anchor
 injection with WXT's clean UI API and CSS deduplication neither has
 built-in.
 
+![NPM Version](https://img.shields.io/npm/v/webext-content-ui?style=for-the-badge)
+![Webext Content UI](https://jsr.io/badges/@oyzamil/webext-content-ui/score)
+![Webext Content UI](https://jsr.io/badges/@oyzamil/webext-content-ui/total-downloads)
+![Webext Content UI Version](https://jsr.io/badges/@oyzamil/webext-content-ui)
+![M. Muzammil](https://jsr.io/badges/@oyzamil)
+![MIT License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+
 ## Install
 
 ```bash
