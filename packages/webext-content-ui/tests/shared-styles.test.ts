@@ -152,4 +152,36 @@ describe("shared-styles", () => {
 			}
 		}
 	});
+
+	it("falls back to a <style> tag when the CSS has @import (replaceSync rejects it)", () => {
+		if (!supportsConstructibleStylesheets()) return; // nothing to fall back from
+
+		const proto = CSSStyleSheet.prototype as {
+			replaceSync?: (css: string) => void;
+		};
+		const original = proto.replaceSync;
+		proto.replaceSync = function (css: string) {
+			if (css.includes("@import")) {
+				throw new DOMException("@import rules are not allowed here.");
+			}
+			original?.call(this, css);
+		};
+
+		try {
+			const root = makeShadowRoot();
+			const css = '@import "foo.css"; .a { color: red; }';
+
+			expect(() => applyStyles(root, css, "import-key", true)).not.toThrow();
+			expect(getAdopted(root).length).toBe(0); // no sheet adopted
+			expect(root.querySelector("style")?.textContent).toContain("@import");
+
+			// Cached failure — a second call with the same key/css shouldn't
+			// retry replaceSync, just append another <style> tag.
+			const rootB = makeShadowRoot();
+			applyStyles(rootB, css, "import-key", true);
+			expect(rootB.querySelector("style")).not.toBeNull();
+		} finally {
+			proto.replaceSync = original;
+		}
+	});
 });

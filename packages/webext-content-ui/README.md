@@ -80,19 +80,88 @@ const injector = createShadowUi({
 injector.mount();
 ```
 
+### Integrated UI (no shadow root, light DOM)
+
+```ts
+import { createIntegratedUi } from 'webext-content-ui';
+
+const injector = createIntegratedUi({
+  name: 'inline-badge',
+  anchor: '.item-title',
+  onMount: ({ container }) => {
+    container.textContent = 'New';
+  },
+});
+
+injector.mount();
+```
+
+Content lands directly in the page's DOM — no shadow boundary. Page CSS
+reaches your markup and vice versa, which is what you want when the
+injected content should visually blend into the page (or reuse the page's
+own classes) rather than stay isolated. `css` is injected once into the
+page's own `<head>`, deduped by `styleKey`.
+
+### Iframe UI (full isolation)
+
+```ts
+import { createIframeUi } from 'webext-content-ui';
+
+const injector = createIframeUi({
+  name: 'sandboxed-widget',
+  anchor: '#target',
+  css: '.btn { color: hotpink; }',
+  onMount: ({ container }) => {
+    container.innerHTML = '<button class="btn">Click</button>';
+  },
+});
+
+injector.mount();
+```
+
+Each anchor gets an `<iframe>` — a separate `window`/`document`, so no CSS
+or global JS leaks either direction. Heavier than a shadow root; use it
+when isolation must survive things a shadow root doesn't stop (e.g. page
+stylesheets targeting `*`, or global CSS resets). The iframe is never
+navigated (no `src`/`srcdoc`) — its initial document is synchronously
+forced into a stable html/head/body via `document.write` right after
+insertion, so `contentDocument` is ready to use immediately, no load event
+to wait for. `hostTag` doesn't apply here (the host is always `<iframe>`).
+
 ## API
 
 ### `createShadowUi(options): Injector`
+### `createIntegratedUi(options): Injector`
+### `createIframeUi(options): Injector`
+
+Same `InjectOptions` shape across all three — they differ only in where
+content ends up:
+
+| Function | Isolation | Host element |
+|---|---|---|
+| `createShadowUi` | Shadow DOM (style-isolated, same document) | `hostTag`, default `'div'` |
+| `createIntegratedUi` | None — light DOM, inherits page styles | `hostTag`, default `'div'` |
+| `createIframeUi` | Full — separate document/window | always `<iframe>`, `hostTag` ignored |
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `name` | `string` | — | Unique name, used as a `data-webext-content-ui` marker |
 | `anchor` | `AnchorInput` | — | What to inject into — see [Anchors](#anchors) below |
 | `position` | `'before' \| 'after' \| 'append' \| 'prepend' \| 'replace'` | `'append'` | Placement relative to each anchor |
-| `sharedRoot` | `boolean` | `false` | Mount all anchors into one shared shadow root |
-| `sharedStyle` | `boolean` | `true` | Dedupe CSS across shadow roots via `adoptedStyleSheets` |
+| `sharedRoot` | `boolean` | `false` | Mount all anchors into one shared host (shadow root / light-DOM host / iframe) |
+| `sharedStyle` | `boolean` | `true` | Dedupe CSS across hosts via `adoptedStyleSheets` |
 | `styleKey` | `string` | `name` | Key used to dedupe styles across separate injector instances |
 | `css` | `string` | `''` | CSS text to inject |
+| `autoDetect` | `boolean` | `false` | Watch the DOM for new anchors matching the selector (string anchors only) |
+| `hostTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the host element (`createShadowUi`/`createIntegratedUi` only) |
+| `containerTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the inner container/slot element(s) |
+| `onMount` | `(ctx: MountContext) => MountResult` | — | Called per matched anchor |
+| `onRemove` | `(result, ctx) => void` | — | Called per anchor on removal |
+
+`Injector` exposes `mount()`, `remove()`, and `instances()`.
+
+`MountContext.shadowRoot` is only set by `createShadowUi`; `MountContext.iframe`
+is only set by `createIframeUi`. `createIntegratedUi` sets neither.
 | `autoDetect` | `boolean` | `false` | Watch the DOM for new anchors matching the selector (string anchors only) |
 | `hostTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the shadow host element |
 | `containerTag` | `keyof HTMLElementTagNameMap` | `'div'` | Tag name for the inner container/slot element(s) |

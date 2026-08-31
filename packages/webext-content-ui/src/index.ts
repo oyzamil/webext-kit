@@ -9,7 +9,7 @@ export type {
 } from "./types";
 
 export { resolveAnchors, watchForAnchors } from "./anchor";
-export { createShadowUi } from "./injector";
+export { createIframeUi, createIntegratedUi, createShadowUi } from "./injector";
 export {
 	applyStyles,
 	clearSharedStyleRegistry,

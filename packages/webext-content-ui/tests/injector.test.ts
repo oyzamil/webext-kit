@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createShadowUi } from "../src/injector";
+import { createIframeUi, createShadowUi } from "../src/injector";
 import {
 	clearSharedStyleRegistry,
 	sharedStyleRegistrySize,
@@ -117,7 +117,9 @@ describe("createShadowUi — batch anchors, separate shadow roots", () => {
 			name: "batch",
 			anchor: ".btn",
 			sharedRoot: false,
-			onMount: (ctx) => roots.add(ctx.shadowRoot),
+			onMount: (ctx) => {
+				if (ctx.shadowRoot) roots.add(ctx.shadowRoot);
+			},
 		});
 		injector.mount();
 
@@ -181,7 +183,9 @@ describe("createShadowUi — sharedRoot (Plasmo-overlay style)", () => {
 			name: "overlay",
 			anchor: ".anchor",
 			sharedRoot: true,
-			onMount: (ctx) => roots.add(ctx.shadowRoot),
+			onMount: (ctx) => {
+				if (ctx.shadowRoot) roots.add(ctx.shadowRoot);
+			},
 		});
 		injector.mount();
 
@@ -301,5 +305,80 @@ describe("createShadowUi — autoDetect", () => {
 
 		// Only the original pre-remove mount call counted.
 		expect(onMount).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("createIframeUi", () => {
+	beforeEach(() => {
+		document.body.innerHTML = "";
+		clearSharedStyleRegistry();
+	});
+
+	it("mounts into an iframe with a usable contentDocument container", () => {
+		document.body.innerHTML = '<div id="target"></div>';
+		let capturedIframe: HTMLIFrameElement | undefined;
+		const injector = createIframeUi({
+			name: "test",
+			anchor: "#target",
+			onMount: ({ container, iframe }) => {
+				capturedIframe = iframe;
+				container.textContent = "hi";
+			},
+		});
+		injector.mount();
+
+		expect(capturedIframe).toBeInstanceOf(HTMLIFrameElement);
+		expect(capturedIframe?.contentDocument?.body.textContent).toContain("hi");
+	});
+
+	it(
+		"mounts into multiple anchors without throwing (regression: each anchor's iframe" +
+			" doc needs a stable body before use)",
+		() => {
+			document.body.innerHTML =
+				"<h2>one</h2><h2>two</h2><h2>three</h2><h2>four</h2>";
+			const onMount = vi.fn();
+
+			expect(() => {
+				const injector = createIframeUi({
+					name: "multi",
+					anchor: "h2",
+					onMount,
+				});
+				injector.mount();
+			}).not.toThrow();
+
+			expect(onMount).toHaveBeenCalledTimes(4);
+		},
+	);
+
+	it("sharedRoot: true mounts every anchor into one iframe", () => {
+		document.body.innerHTML = "<h2>one</h2><h2>two</h2>";
+		const seenIframes = new Set<HTMLIFrameElement>();
+		const injector = createIframeUi({
+			name: "shared",
+			anchor: "h2",
+			sharedRoot: true,
+			onMount: ({ iframe }) => {
+				if (iframe) seenIframes.add(iframe);
+			},
+		});
+		injector.mount();
+
+		expect(seenIframes.size).toBe(1);
+	});
+
+	it("removes iframes on remove()", () => {
+		document.body.innerHTML = '<div id="target"></div>';
+		const injector = createIframeUi({
+			name: "test",
+			anchor: "#target",
+			onMount: () => {},
+		});
+		injector.mount();
+		expect(document.querySelectorAll("iframe").length).toBe(1);
+
+		injector.remove();
+		expect(document.querySelectorAll("iframe").length).toBe(0);
 	});
 });

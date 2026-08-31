@@ -38,10 +38,12 @@ export type InjectPosition =
 export type MountResult = unknown;
 
 export interface MountContext {
-	/** The shadow root's content container (the element you render into). */
+	/** The content container you render into. */
 	container: HTMLElement;
-	/** The shadow root itself. */
-	shadowRoot: ShadowRoot;
+	/** The shadow root, when this injector uses one (createShadowUi only). */
+	shadowRoot?: ShadowRoot;
+	/** The iframe element, when this injector uses one (createIframeUi only). */
+	iframe?: HTMLIFrameElement;
 	/** The DOM node this injection was anchored to. */
 	anchor: Element;
 	/** Index of this anchor within the batch (0 for single-element injections). */
@@ -109,7 +111,8 @@ export interface InjectOptions {
 export interface MountedInstance {
 	anchor: Element;
 	host: HTMLElement;
-	shadowRoot: ShadowRoot;
+	shadowRoot?: ShadowRoot;
+	iframe?: HTMLIFrameElement;
 	container: HTMLElement;
 	result: MountResult;
 }
