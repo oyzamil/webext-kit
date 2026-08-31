@@ -1,4 +1,4 @@
-# Webext Content UI
+# Webext Content Ui
 
 Inject elements into DOM — single element or batch of anchors, with
 optional shared styles across shadow roots. Combines Plasmo's batch-anchor
