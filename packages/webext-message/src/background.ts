@@ -1,24 +1,12 @@
-import { type ExtMessaging, type PortName } from "./types";
+import { type ExtMessaging } from "./types";
 import { getExtRuntime } from "./utils";
 
-let portMapInstance: Map<PortName, chrome.runtime.Port> | undefined;
-
-export const getPortMap = (): Map<PortName, chrome.runtime.Port> => {
-	if (!portMapInstance) {
-		portMapInstance = new Map<PortName, chrome.runtime.Port>();
-	}
-	return portMapInstance;
-};
-
-export const getPort = (name: PortName): chrome.runtime.Port => {
-	const portMap = getPortMap();
-	const port = portMap.get(name);
-	if (!port) {
-		throw new Error(`Port ${name} not found`);
-	}
-	return port;
-};
-
+/**
+ * Sets up the background-side listener that answers the internal
+ * "is the background context alive" ping used to detect a stale
+ * service worker. Safe to call multiple times; each call adds its
+ * own listener via `runtime.onMessage`.
+ */
 export const initializeBackgroundMessaging = (): void => {
 	const runtime = getExtRuntime();
 
@@ -31,15 +19,6 @@ export const initializeBackgroundMessaging = (): void => {
 			return false;
 		},
 	);
-
-	runtime.onConnect.addListener((port) => {
-		const portMap = getPortMap();
-		portMap.set(port.name as PortName, port);
-
-		port.onDisconnect.addListener(() => {
-			portMap.delete(port.name as PortName);
-		});
-	});
 };
 
 // Auto-initialize when this module is imported

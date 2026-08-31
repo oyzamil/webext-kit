@@ -57,6 +57,12 @@ export const relayMessage: ExtMessaging.MessageRelayFx = (req) =>
  */
 export const relay = relayMessage;
 
+/**
+ * Sends a request to the background through a `window.postMessage`
+ * relay (see {@link rawSendViaRelay}), for contexts that can't use
+ * `chrome.runtime.sendMessage` directly (e.g. main-world content
+ * scripts).
+ */
 export const sendToBackgroundViaRelay: ExtMessaging.SendFx<MessageName> =
 	rawSendViaRelay;
 

@@ -1,5 +1,5 @@
 {
-	"name": "wxt-message-example",
+	"name": "webext-message-example",
 	"version": "0.0.1",
 	"description": "WXT demo extension showing all webext-message features",
 	"type": "module",

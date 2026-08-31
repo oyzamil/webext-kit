@@ -3,10 +3,7 @@
  * Use in development only, remove from production
  */
 
-declare global {
-	var __extMessagingDebug: MessageDebugger | undefined;
-}
-
+/** One recorded debug event. */
 interface DebugEvent {
 	timestamp: number;
 	type: "send" | "receive" | "port-connect" | "port-disconnect" | "error";
@@ -16,76 +13,71 @@ interface DebugEvent {
 	tabId?: number;
 }
 
+/**
+ * Ring-buffer logger for message/port activity. Disabled by default
+ * (all `log*` calls are no-ops) so it's safe to import unconditionally;
+ * call `enable()` in development to start recording.
+ */
 export class MessageDebugger {
 	private events: DebugEvent[] = [];
 	private maxEvents = 500;
 	private enabled = false;
 
+	/** Turn on event recording. */
 	enable() {
 		this.enabled = true;
 		console.log("[webext-message] Debug enabled");
 	}
 
+	/** Turn off event recording. Existing events are kept. */
 	disable() {
 		this.enabled = false;
 		console.log("[webext-message] Debug disabled");
 	}
 
+	/** Record an outgoing message. No-op unless {@link enable} was called. */
 	logSend(name: string, body: any, tabId?: number) {
-		if (!this.enabled) return;
-
-		this.addEvent({
-			timestamp: Date.now(),
-			type: "send",
-			name,
-			data: body,
-			tabId,
-		});
+		this.record("send", { name, data: body, tabId });
 	}
 
+	/** Record an incoming message. No-op unless {@link enable} was called. */
 	logReceive(name: string, body: any, tabId?: number) {
-		if (!this.enabled) return;
-
-		this.addEvent({
-			timestamp: Date.now(),
-			type: "receive",
-			name,
-			data: body,
-			tabId,
-		});
+		this.record("receive", { name, data: body, tabId });
 	}
 
+	/** Record a port connecting. No-op unless {@link enable} was called. */
 	logPortConnect(name: string) {
-		if (!this.enabled) return;
-
-		this.addEvent({
-			timestamp: Date.now(),
-			type: "port-connect",
-			name,
-		});
+		this.record("port-connect", { name });
 	}
 
+	/** Record a port disconnecting. No-op unless {@link enable} was called. */
 	logPortDisconnect(name: string) {
-		if (!this.enabled) return;
-
-		this.addEvent({
-			timestamp: Date.now(),
-			type: "port-disconnect",
-			name,
-		});
+		this.record("port-disconnect", { name });
 	}
 
+	/** Record a handler error. No-op unless {@link enable} was called. */
 	logError(name: string, error: Error) {
+		this.record("error", { name, error: error.message });
+	}
+
+	/**
+	 * Shared implementation behind all `log*` methods: bails out when
+	 * disabled, otherwise builds the event and appends it.
+	 */
+	private record(
+		type: DebugEvent["type"],
+		fields: Omit<DebugEvent, "timestamp" | "type">,
+	) {
 		if (!this.enabled) return;
 
 		this.addEvent({
 			timestamp: Date.now(),
-			type: "error",
-			name,
-			error: error.message,
+			type,
+			...fields,
 		});
 	}
 
+	/** Append an event to the buffer, trimming to `maxEvents`. */
 	private addEvent(event: DebugEvent) {
 		this.events.push(event);
 
@@ -96,10 +88,12 @@ export class MessageDebugger {
 		console.debug("[webext-message]", event);
 	}
 
+	/** All recorded events, oldest first. */
 	getEvents(): DebugEvent[] {
 		return this.events;
 	}
 
+	/** Aggregate counts of recorded events, by type and by message/port name. */
 	getStats() {
 		const stats: Record<string, any> = {
 			total: this.events.length,
@@ -126,26 +120,35 @@ export class MessageDebugger {
 		return stats;
 	}
 
+	/** Clear all recorded events. */
 	clear() {
 		this.events = [];
 		console.log("[webext-message] Debug events cleared");
 	}
 
+	/** Print {@link getStats} as a table. */
 	printStats() {
 		console.table(this.getStats());
 	}
 
+	/** Print all recorded events as a table. */
 	printEvents() {
 		console.table(this.getEvents());
 	}
 }
 
-// Export singleton
+let debuggerInstance: MessageDebugger | undefined;
+
+/**
+ * Lazily creates and returns the singleton {@link MessageDebugger}.
+ * Same instance-caching pattern as `getPortMap`/`getHubMap` elsewhere
+ * in this library — module-scoped variable, no `declare global`.
+ */
 export function getDebugger(): MessageDebugger {
-	if (!globalThis.__extMessagingDebug) {
-		globalThis.__extMessagingDebug = new MessageDebugger();
+	if (!debuggerInstance) {
+		debuggerInstance = new MessageDebugger();
 	}
-	return globalThis.__extMessagingDebug;
+	return debuggerInstance;
 }
 
 // Enable on window for console access

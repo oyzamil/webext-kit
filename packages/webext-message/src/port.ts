@@ -3,6 +3,11 @@ import { getExtRuntime } from "./utils";
 
 const portMap = new Map<PortName, chrome.runtime.Port>();
 
+/**
+ * Returns the cached `chrome.runtime.Port` for `name`, connecting
+ * one via `runtime.connect` on first use. Client-side (connect-out):
+ * for the background-side accept listener, see {@link onPortConnect}.
+ */
 export const getPort = (name: PortName): chrome.runtime.Port => {
 	const port = portMap.get(name);
 	if (port) {
@@ -13,10 +18,25 @@ export const getPort = (name: PortName): chrome.runtime.Port => {
 	return newPort;
 };
 
+/**
+ * Drops the cached port for `name`, if any, so the next
+ * {@link getPort} call opens a fresh connection.
+ */
 export const removePort = (name: PortName) => {
 	portMap.delete(name);
 };
 
+/**
+ * Connects to (or reuses) the port named `name` and listens for
+ * messages on it. On disconnect, clears the cached port and invokes
+ * `onReconnect` so the caller can reconnect on demand. Returns the
+ * underlying port plus a `disconnect` function that removes this
+ * handler's listeners (without closing the port itself).
+ *
+ * @param name port name to connect to
+ * @param handler called with each message received on the port
+ * @param onReconnect optional callback fired when the port disconnects
+ */
 export const listen = <ResponseBody = any>(
 	name: PortName,
 	handler: (msg: ResponseBody) => Promise<void> | void,
@@ -49,8 +69,15 @@ export const listen = <ResponseBody = any>(
 	};
 };
 
+/**
+ * Wiring returned by an {@link onPortConnect} handler: listeners to
+ * attach to the newly-connected port. Returning nothing (`void`)
+ * skips wiring anything up.
+ */
 type PortConnectResult = {
+	/** Called with each message received on the port. */
 	onMessage?: (msg: any) => void;
+	/** Called when the port disconnects. */
 	onDisconnect?: () => void;
 } | void;
 
@@ -61,6 +88,10 @@ type PortConnectResult = {
  * `{ onMessage, onDisconnect }` to wire up. Distinct from `onPort`
  * (client connect-out) because the two shapes can't be told apart by
  * the type checker if merged into one overloaded function.
+ *
+ * @param name port name to accept connections for
+ * @param handler invoked with the connecting port; may be async
+ * @returns unsubscribe function that stops accepting new connections
  */
 export const onPortConnect = (
 	name: PortName,

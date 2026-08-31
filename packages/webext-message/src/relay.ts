@@ -5,6 +5,12 @@ import { isSameOrigin } from "./utils";
 
 /**
  * Raw relay abstracting window.postMessage
+ *
+ * Listens on `messagePort` (a `Window` by default) for a request
+ * matching `req`, forwards it to `onMessage` (typically a send to
+ * the background), and posts the result back tagged `relayed: true`
+ * so the original sender's listener can pick it up. Returns an
+ * unsubscribe function.
  */
 export const relay: ExtMessaging.RelayFx = (
 	req,
@@ -22,6 +28,7 @@ export const relay: ExtMessaging.RelayFx = (
 			};
 
 			const backgroundResponse = await onMessage?.(relayPayload);
+			const targetOrigin = req.targetOrigin || "/";
 
 			messagePort.postMessage(
 				{
@@ -32,7 +39,7 @@ export const relay: ExtMessaging.RelayFx = (
 					relayed: true,
 				},
 				{
-					targetOrigin: req.targetOrigin || "/",
+					targetOrigin,
 				},
 			);
 		}
@@ -42,12 +49,18 @@ export const relay: ExtMessaging.RelayFx = (
 	return () => messagePort.removeEventListener("message", relayHandler);
 };
 
+/**
+ * Sends a request through a `window.postMessage` relay (set up on
+ * the other end via {@link relay}) and resolves with the relayed
+ * response. Rejects if no response arrives within 30s.
+ */
 export const sendViaRelay: ExtMessaging.SendFx = (
 	req,
 	messagePort = globalThis.window,
 ) =>
 	new Promise((resolve, reject) => {
 		const instanceId = nanoid();
+		const targetOrigin = req.targetOrigin || "/";
 
 		const handler = (evt: Event) => {
 			const event = evt as MessageEvent<ExtMessaging.RelayMessage>;
@@ -70,10 +83,10 @@ export const sendViaRelay: ExtMessaging.SendFx = (
 				body: req.body,
 				relayId: req.relayId,
 				instanceId,
-				targetOrigin: req.targetOrigin || "/",
+				targetOrigin,
 			},
 			{
-				targetOrigin: req.targetOrigin || "/",
+				targetOrigin,
 			},
 		);
 

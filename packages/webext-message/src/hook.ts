@@ -7,6 +7,9 @@ import { type ExtMessaging, type MessageName } from "./types";
 
 /**
  * Used in any extension context to listen and send messages to background.
+ *
+ * Wraps {@link messageListen}: tracks the latest received body in
+ * state and re-registers the listener whenever `handler` changes.
  */
 export const useMessage = <RequestBody = any, ResponseBody = any>(
 	handler: ExtMessaging.Handler<string, RequestBody, ResponseBody>,
@@ -27,6 +30,11 @@ export const useMessage = <RequestBody = any, ResponseBody = any>(
 	};
 };
 
+/**
+ * Hook for connecting to and communicating over a named port. Tracks
+ * the latest received message in state, reconnects when `name`
+ * changes, and exposes `send`/`listen` for imperative use.
+ */
 export const usePort: ExtMessaging.PortHook = (name) => {
 	const portRef = useRef<chrome.runtime.Port | undefined>(undefined);
 	const reconnectRef = useRef(0);
@@ -68,6 +76,10 @@ export const usePort: ExtMessaging.PortHook = (name) => {
 
 /**
  * Hook to set up relay for message relaying
+ *
+ * Re-sends `req` through the message relay whenever `req.name` or
+ * `req.relayId` changes. Imports `relayMessage` lazily from `./index`
+ * to avoid a circular dependency at module load time.
  */
 export function useMessageRelay<RequestBody = any>(
 	req: ExtMessaging.Request<MessageName, RequestBody>,
@@ -81,6 +93,11 @@ export function useMessageRelay<RequestBody = any>(
 	}, [req.name, req.relayId]);
 }
 
+/**
+ * Hook wrapper around {@link relay}: sets up the `postMessage` relay
+ * for `req`/`onMessage` on mount and tears it down on unmount or
+ * when either argument changes.
+ */
 export const useRelay: ExtMessaging.RelayFx = (req, onMessage) => {
 	const relayRef = useRef<(() => void) | undefined>(undefined);
 

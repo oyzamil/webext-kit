@@ -1,13 +1,23 @@
 import { getExtRuntime } from "./utils";
 
+/**
+ * Message shape used by the tab-to-tab pub/sub hub.
+ */
 export type PubSubMessage = {
+	/** Sender tab id, set automatically by {@link startHub}. */
 	from?: number;
+	/** Recipient tab id, set automatically per-recipient by {@link broadcast}. */
 	to?: number;
+	/** Arbitrary message payload. */
 	payload: any;
 };
 
 let hubMapInstance: Map<number, chrome.runtime.Port> | undefined;
 
+/**
+ * Lazily creates and returns the singleton map of connected hub
+ * ports, keyed by tab id.
+ */
 export const getHubMap = (): Map<number, chrome.runtime.Port> => {
 	if (!hubMapInstance) {
 		hubMapInstance = new Map();
@@ -15,6 +25,14 @@ export const getHubMap = (): Map<number, chrome.runtime.Port> => {
 	return hubMapInstance;
 };
 
+/**
+ * Background only. Starts accepting external port connections (via
+ * `chrome.runtime.onConnectExternal`) and relaying messages between
+ * connected tabs through {@link broadcast}. Requires
+ * `externally_connectable` to be set in the extension manifest.
+ *
+ * @throws if `onConnectExternal` isn't available (missing manifest config)
+ */
 export const startHub = (): void => {
 	const runtime = getExtRuntime();
 
@@ -43,6 +61,10 @@ export const startHub = (): void => {
 	});
 };
 
+/**
+ * Sends `pubSubMessage` to every hub-connected tab except the
+ * sender (`pubSubMessage.from`).
+ */
 export const broadcast = (pubSubMessage: PubSubMessage): void => {
 	const hub = getHubMap();
 	hub.forEach((port, tabId) => {
@@ -54,6 +76,10 @@ export const broadcast = (pubSubMessage: PubSubMessage): void => {
 	});
 };
 
+/**
+ * Subscribes to incoming runtime messages. Returns an unsubscribe
+ * function.
+ */
 export const subscribe = (
 	callback: (message: PubSubMessage) => void,
 ): (() => void) => {
