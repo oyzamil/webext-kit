@@ -1,6 +1,6 @@
 # webext-content-ui
 
-Inject elements into Shadow DOM — single element or batch of anchors, with
+Inject elements into DOM — single element or batch of anchors, with
 optional shared styles across shadow roots. Combines Plasmo's batch-anchor
 injection with WXT's clean UI API and CSS deduplication neither has
 built-in.
