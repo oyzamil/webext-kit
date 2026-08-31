@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Reset inherited host-page styles inside our shadow roots, since we don't
+   use WXT's createShadowRootUi (which does this for us automatically). */
+:host {
+	all: initial;
+}
+
+.si-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	margin-left: 0.5rem;
+	vertical-align: middle;
+}

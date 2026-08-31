@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "webext-content-ui demo",
+  "description": "Injects a batch-anchored React UI into a page via webext-content-ui, with deduped Tailwind styles.",
+  "version": "0.0.1",
+  "permissions": [
+    "tabs",
+    "scripting"
+  ],
+  "commands": {
+    "wxt:reload-extension": {
+      "description": "Reload the extension during development",
+      "suggested_key": {
+        "default": "Alt+R"
+      }
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "webext-content-ui demo",
+    "default_popup": "popup.html"
+  },
+  "host_permissions": [
+    "*://*/*",
+    "http://localhost/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' http://localhost:3000; object-src 'self';",
+    "sandbox": "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000; sandbox allow-scripts allow-forms allow-popups allow-modals; child-src 'self';"
+  }
+}

@@ -1,0 +1,36 @@
+{
+	"name": "webext-content-ui-example",
+	"version": "0.0.1",
+	"description": "Example WXT extension (React + TypeScript + Tailwind v4) using webext-content-ui for content-script UI",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wxt",
+		"dev:firefox": "wxt -b firefox",
+		"build": "wxt build",
+		"build:firefox": "wxt build -b firefox",
+		"zip": "wxt zip",
+		"zip:firefox": "wxt zip -b firefox",
+		"compile": "tsc --noEmit",
+		"postinstall": "wxt prepare"
+	},
+	"dependencies": {
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
+		"webext-content-ui": "workspace:*"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.3.3",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@wxt-dev/module-react": "^1.2.2",
+		"tailwindcss": "^4.3.3",
+		"typescript": "catalog:",
+		"vite": "^8.2.2",
+		"wxt": "^0.21.4"
+	},
+	"overrides": {
+		"@vitejs/plugin-react": "^6.1.1",
+		"vite": "^8.2.2"
+	}
+}
