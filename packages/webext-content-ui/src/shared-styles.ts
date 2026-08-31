@@ -52,7 +52,11 @@ export function applyStyles(
 
 	if (shared && supportsConstructibleStylesheets()) {
 		const sheet = getOrCreateSheet(styleKey, css);
-		shadowRoot.adoptedStyleSheets = [...shadowRoot.adoptedStyleSheets, sheet];
+		const currentSheets = Array.isArray(shadowRoot.adoptedStyleSheets)
+			? shadowRoot.adoptedStyleSheets
+			: [];
+
+		shadowRoot.adoptedStyleSheets = [...currentSheets, sheet];
 		return;
 	}
 
