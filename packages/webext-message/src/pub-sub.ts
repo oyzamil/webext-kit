@@ -6,18 +6,16 @@ export type PubSubMessage = {
 	payload: any;
 };
 
-declare global {
-	var __extMessagingHubMap: Map<number, chrome.runtime.Port> | undefined;
-}
+let hubMapInstance: Map<number, chrome.runtime.Port> | undefined;
 
 export const getHubMap = (): Map<number, chrome.runtime.Port> => {
-	if (!globalThis.__extMessagingHubMap) {
-		globalThis.__extMessagingHubMap = new Map();
+	if (!hubMapInstance) {
+		hubMapInstance = new Map();
 	}
-	return globalThis.__extMessagingHubMap;
+	return hubMapInstance;
 };
 
-export const startHub = () => {
+export const startHub = (): void => {
 	const runtime = getExtRuntime();
 
 	if (!runtime.onConnectExternal) {
@@ -26,7 +24,7 @@ export const startHub = () => {
 		);
 	}
 
-	globalThis.__extMessagingHubMap = new Map();
+	hubMapInstance = new Map();
 	const hub = getHubMap();
 
 	runtime.onConnectExternal.addListener((port) => {
@@ -45,7 +43,7 @@ export const startHub = () => {
 	});
 };
 
-export const broadcast = (pubSubMessage: PubSubMessage) => {
+export const broadcast = (pubSubMessage: PubSubMessage): void => {
 	const hub = getHubMap();
 	hub.forEach((port, tabId) => {
 		const skipBroadcast = tabId === pubSubMessage.from;
@@ -56,7 +54,9 @@ export const broadcast = (pubSubMessage: PubSubMessage) => {
 	});
 };
 
-export const subscribe = (callback: (message: PubSubMessage) => void) => {
+export const subscribe = (
+	callback: (message: PubSubMessage) => void,
+): (() => void) => {
 	const listener = (message: PubSubMessage) => {
 		callback(message);
 	};

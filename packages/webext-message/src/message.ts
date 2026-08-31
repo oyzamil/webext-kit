@@ -3,7 +3,7 @@ import { getExtRuntime } from "./utils";
 
 export const listen = <RequestBody = any, ResponseBody = any>(
 	handler: ExtMessaging.Handler<string, RequestBody, ResponseBody>,
-) => {
+): (() => void) => {
 	const metaListener = async (
 		req: any,
 		sender: chrome.runtime.MessageSender,

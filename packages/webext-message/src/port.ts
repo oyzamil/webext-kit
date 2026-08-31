@@ -3,7 +3,7 @@ import { getExtRuntime } from "./utils";
 
 const portMap = new Map<PortName, chrome.runtime.Port>();
 
-export const getPort = (name: PortName) => {
+export const getPort = (name: PortName): chrome.runtime.Port => {
 	const port = portMap.get(name);
 	if (port) {
 		return port;
@@ -21,7 +21,7 @@ export const listen = <ResponseBody = any>(
 	name: PortName,
 	handler: (msg: ResponseBody) => Promise<void> | void,
 	onReconnect?: () => void,
-) => {
+): { port: chrome.runtime.Port; disconnect: () => void } => {
 	const port = getPort(name);
 
 	function reconnectHandler() {
@@ -67,7 +67,7 @@ export const onPortConnect = (
 	handler: (
 		port: chrome.runtime.Port,
 	) => PortConnectResult | Promise<PortConnectResult>,
-) => {
+): (() => void) => {
 	const runtime = getExtRuntime();
 
 	const connectListener = async (port: chrome.runtime.Port) => {

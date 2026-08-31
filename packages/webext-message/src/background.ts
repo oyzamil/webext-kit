@@ -1,15 +1,13 @@
 import { type ExtMessaging, type PortName } from "./types";
 import { getExtRuntime } from "./utils";
 
-declare global {
-	var __extMessagingPortMap: Map<PortName, chrome.runtime.Port> | undefined;
-}
+let portMapInstance: Map<PortName, chrome.runtime.Port> | undefined;
 
 export const getPortMap = (): Map<PortName, chrome.runtime.Port> => {
-	if (!globalThis.__extMessagingPortMap) {
-		globalThis.__extMessagingPortMap = new Map<PortName, chrome.runtime.Port>();
+	if (!portMapInstance) {
+		portMapInstance = new Map<PortName, chrome.runtime.Port>();
 	}
-	return globalThis.__extMessagingPortMap;
+	return portMapInstance;
 };
 
 export const getPort = (name: PortName): chrome.runtime.Port => {
@@ -21,7 +19,7 @@ export const getPort = (name: PortName): chrome.runtime.Port => {
 	return port;
 };
 
-export const initializeBackgroundMessaging = () => {
+export const initializeBackgroundMessaging = (): void => {
 	const runtime = getExtRuntime();
 
 	runtime.onMessage.addListener(
