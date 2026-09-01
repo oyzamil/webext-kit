@@ -37,8 +37,14 @@ export type ContentUiPosition =
 /** Result handed back from onMount; passed through to onRemove for cleanup. */
 export type MountResult = unknown;
 
+/**
+ * Context passed to onMount and onRemove callbacks.
+ * Contains host, container, and mode-specific fields (shadowRoot/iframe).
+ */
 export interface MountContext {
+	/** Host element (display: contents) containing injected content. */
 	host: HTMLElement;
+	/** Alias for host (for compatibility). */
 	wrapper: HTMLElement;
 	/** The content container you render into. */
 	container: HTMLElement;
@@ -52,6 +58,10 @@ export interface MountContext {
 	index: number;
 }
 
+/**
+ * Options for creating content UI injections.
+ * Controls placement, styling, lifecycle, and behavior.
+ */
 export interface ContentUiOptions {
 	/** Unique name for this injection; used as the host element tag/id prefix. */
 	name: string;
@@ -67,11 +77,12 @@ export interface ContentUiOptions {
 	 * (Plasmo-overlay style). When false (default), each anchor gets its own
 	 * shadow root, but CSS text is still deduplicated via a shared
 	 * CSSStyleSheet (adoptedStyleSheets) rather than re-injected per root.
+	 * @default false
 	 */
 	sharedRoot?: boolean;
 
 	/**
-	 * When enabled, `event.stopPropagation` called on events tryin bubble out
+	 * When enabled, `event.stopPropagation` called on events trying to bubble out
 	 * of shadow root.
 	 *
 	 * - `true` (default) — stop propagation of default set,
@@ -87,6 +98,7 @@ export interface ContentUiOptions {
 	 * When true (default), CSS text passed via `css` is shared across all
 	 * shadow roots created by ALL injectors using the same styleKey, via
 	 * adoptedStyleSheets. When false, styles are not deduplicated.
+	 * @default true
 	 */
 	sharedStyle?: boolean;
 
@@ -103,6 +115,7 @@ export interface ContentUiOptions {
 	 * Observe the DOM for anchors matching a selector added after initial
 	 * mount, and auto-mount into them. Only meaningful when `anchor` is a
 	 * selector string. Default: false.
+	 * @default false
 	 */
 	autoDetect?: boolean;
 
@@ -118,10 +131,13 @@ export interface ContentUiOptions {
 	 * Tag name for the shadow host element. Default: 'div'. Host has
 	 * `display: contents` applied, so pick a tag valid in the anchor's
 	 * context (e.g. 'tr' inside a `<table>`, 'li' inside a list).
+	 * @default "div"
 	 */
 	hostTag?: keyof HTMLElementTagNameMap;
 
-	/** Tag name for the inner container/slot element(s). Default: 'div'. */
+	/** Tag name for the inner container/slot element(s). Default: 'div'.
+	 * @default "div"
+	 */
 	containerTag?: keyof HTMLElementTagNameMap;
 
 	/** Called once per matched anchor after its shadow root/container exist. */
@@ -131,17 +147,33 @@ export interface ContentUiOptions {
 	onRemove?: (result: MountResult, ctx: MountContext) => void;
 }
 
+/**
+ * Internal representation of a mounted injection instance.
+ * Tracks all state needed for cleanup.
+ */
 export interface MountedInstance {
+	/** The anchor this instance was mounted to. */
 	anchor: Element;
+	/** Host element (display: contents). */
 	host: HTMLElement;
+	/** Shadow root if applicable (shadow mode only). */
 	shadowRoot?: ShadowRoot;
+	/** Iframe element if applicable (iframe mode only). */
 	iframe?: HTMLIFrameElement;
+	/** Container for user content. */
 	container: HTMLElement;
+	/** Result from onMount callback (passed to onRemove). */
 	result: MountResult;
+	/** Cleanup function for event isolation. */
 	isolateCleanup?: (() => void) | null;
+	/** Cleanup function for auto-size observer. */
 	sizeCleanup?: (() => void) | null;
 }
 
+/**
+ * Public interface returned by createShadowRootUi/createIntegratedUi/createIframeUi.
+ * Provides mount/remove lifecycle and instance introspection.
+ */
 export interface ContentUi {
 	/** Mount into every anchor currently matching, and start auto-detect if enabled. */
 	mount: () => void;

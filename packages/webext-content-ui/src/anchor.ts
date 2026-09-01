@@ -1,5 +1,10 @@
 import { type AnchorInput, type AnchorValue } from "./types";
 
+/**
+ * Add AnchorValue (element or collection) to deduplication set.
+ * @param found - Set to accumulate elements into
+ * @param value - Element, collection, or null/undefined to add
+ */
 function addValue(found: Set<Element>, value: AnchorValue): void {
 	if (!value) return;
 	if (value instanceof Element) {
@@ -9,7 +14,14 @@ function addValue(found: Set<Element>, value: AnchorValue): void {
 	for (const el of value) found.add(el);
 }
 
-/** Resolve an AnchorInput into a de-duplicated array of live elements, in document order. */
+/**
+ * Resolve an AnchorInput into a de-duplicated array of live elements, in document order.
+ * Handles selector strings (queried fresh), Elements, and resolver functions.
+ *
+ * @param input - CSS selector, Element, resolver function, or array mix
+ * @param root - Search root (default: document)
+ * @returns Array of unique Elements in document order
+ */
 export function resolveAnchors(
 	input: AnchorInput,
 	root: ParentNode = document,
@@ -31,9 +43,14 @@ export function resolveAnchors(
 }
 
 /**
- * Start observing `root` for new elements matching `selector` that are not
- * already in `known`. Calls `onNew` once per newly-appeared match, in the
- * order encountered. Returns a disconnect function.
+ * Start observing root for new elements matching selector, triggering onNew for each.
+ * Elements already in known set are skipped. Returns disconnect function to stop watching.
+ *
+ * @param selector - CSS selector to match new elements
+ * @param known - Set tracking already-seen elements (mutated on each new match)
+ * @param onNew - Callback invoked per newly-matched element
+ * @param root - Root element to observe (default: document.body)
+ * @returns Function to stop watching
  */
 export function watchForAnchors(
 	selector: string,

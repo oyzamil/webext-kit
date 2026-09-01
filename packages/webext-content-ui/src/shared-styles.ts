@@ -1,25 +1,13 @@
-/**
- * Registry of shared CSSStyleSheet objects, keyed by styleKey + css text.
- * One CSSStyleSheet is constructed per unique (key, css) pair and reused
- * (adopted) across every shadow root that asks for it — this is what
- * avoids re-shipping/re-parsing the same Tailwind bundle per shadow host.
- * A `null` entry means construction was skipped/failed for this css (e.g.
- * it contains `@import`) — cached so we don't recheck every call.
- */
+/** Registry of shared CSSStyleSheet objects, keyed by styleKey + css text hash. */
 const sheetRegistry = new Map<string, CSSStyleSheet | null>();
 
-/**
- * Cheap heuristic for "this css has an @import rule". Constructible
- * stylesheets don't allow it: some browsers throw on `replaceSync`, but
- * Chrome (recent versions) just drops the rule and logs a console warning
- * WITHOUT throwing — so we can't rely on try/catch to detect it, and have
- * to keep @import css off the replaceSync path entirely to avoid the
- * warning. May false-positive on "@import" appearing in a comment/string,
- * which just means an unnecessary (but harmless) fallback to <style>.
- */
+/** Regex to detect @import rules in CSS (cheap heuristic). */
 const HAS_IMPORT = /@import\b/i;
 
-/** True when the runtime supports constructible stylesheets + adoptedStyleSheets. */
+/**
+ * Check if runtime supports constructible stylesheets via adoptedStyleSheets API.
+ * @returns True when CSSStyleSheet.prototype.replaceSync is available
+ */
 export function supportsConstructibleStylesheets(): boolean {
 	return (
 		typeof CSSStyleSheet !== "undefined" &&
@@ -28,9 +16,15 @@ export function supportsConstructibleStylesheets(): boolean {
 	);
 }
 
+/**
+ * Generate unique registry key from styleKey + css content.
+ * Includes css length and hash to invalidate on content changes (e.g. hot reload).
+ *
+ * @param styleKey - Dedup key from ContentUiOptions
+ * @param css - Raw CSS text
+ * @returns Unique cache key
+ */
 function registryKey(styleKey: string, css: string): string {
-	// Include css length + a cheap hash so the same key with different CSS
-	// (e.g. hot-reloaded content) doesn't silently reuse a stale sheet.
 	let hash = 0;
 	for (let i = 0; i < css.length; i++) {
 		hash = (hash * 31 + css.charCodeAt(i)) | 0;
@@ -39,13 +33,12 @@ function registryKey(styleKey: string, css: string): string {
 }
 
 /**
- * Returns a shared CSSStyleSheet for (styleKey, css), or `null` when it
- * should NOT go through the constructible-sheet path — either because
- * `css` contains `@import` (see HAS_IMPORT above), or the runtime rejected
- * `replaceSync` outright:
- * https://github.com/WICG/construct-stylesheets/issues/119#issuecomment-588352418
- * Callers should fall back to a plain <style> tag in that case (@import
- * works fine there, no warning).
+ * Get or create shared CSSStyleSheet for (styleKey, css).
+ * Returns null if css contains @import or replaceSync fails; caller should fall back to <style> tag.
+ *
+ * @param styleKey - Dedup key
+ * @param css - Raw CSS text
+ * @returns CSSStyleSheet or null (for @import or failed construction)
  */
 function getOrCreateSheet(styleKey: string, css: string): CSSStyleSheet | null {
 	const key = registryKey(styleKey, css);
@@ -67,19 +60,23 @@ function getOrCreateSheet(styleKey: string, css: string): CSSStyleSheet | null {
 	return sheet;
 }
 
+/**
+ * Check if node is a Document (realm-safe via nodeType, not instanceof).
+ * @param node - Node to check
+ * @returns True if node is Document
+ */
 function isDocument(node: ShadowRoot | Document): node is Document {
-	return node.nodeType === 9; // Node.DOCUMENT_NODE — realm-safe, instanceof Document ain't (fails cross-frame)
+	return node.nodeType === 9; // Node.DOCUMENT_NODE
 }
 
 /**
- * Apply `css` to `root` (a ShadowRoot, or a Document for shadow-less
- * injection modes), deduplicating across calls that share the same
- * styleKey + css text when `shared` is true and the runtime supports
- * adoptedStyleSheets. Falls back to a plain injected <style> tag when
- * that's unsupported, OR when `css` can't be built into a constructible
- * sheet (e.g. it has `@import` — see getOrCreateSheet above). The <style>
- * tag fallback is per-root, so `@import` CSS is never deduped across
- * multiple hosts — only the sheet-based path shares.
+ * Apply CSS to root (ShadowRoot or Document), deduplicating via adoptedStyleSheets when supported.
+ * Falls back to <style> tag when constructible sheets unsupported or css contains @import.
+ *
+ * @param root - ShadowRoot or Document to apply styles to
+ * @param css - Raw CSS text
+ * @param styleKey - Dedup key for shared stylesheet
+ * @param shared - Enable dedup across injectors (requires supportsConstructibleStylesheets)
  */
 export function applyStyles(
 	root: ShadowRoot | Document,
@@ -106,14 +103,19 @@ export function applyStyles(
 	);
 }
 
-/** Remove every registered shared sheet. Mainly for test isolation. */
+/**
+ * Clear all registered shared stylesheets. Use for test isolation.
+ */
 export function clearSharedStyleRegistry(): void {
 	sheetRegistry.clear();
 }
 
-/** Number of distinct (styleKey, css) pairs registered — including entries
- * that failed sheet construction (e.g. @import) and fell back to <style>.
- * Useful for tests/debugging. */
+/**
+ * Get count of distinct (styleKey, css) pairs in registry.
+ * Includes failed constructions and @import fallbacks.
+ *
+ * @returns Number of cached styles
+ */
 export function sharedStyleRegistrySize(): number {
 	return sheetRegistry.size;
 }

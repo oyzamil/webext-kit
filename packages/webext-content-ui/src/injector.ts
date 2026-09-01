@@ -10,6 +10,12 @@ import {
 
 const TAG_PREFIX = "webext-content-ui";
 
+/**
+ * Create host element with display: contents for DOM passthrough.
+ * @param name - Unique name for data-webext-content-ui attribute
+ * @param tag - HTML tag name (default: div)
+ * @returns Configured host element
+ */
 function makeHost(name: string, tag: string): HTMLElement {
 	const host = document.createElement(tag);
 	host.setAttribute("data-webext-content-ui", name);
@@ -17,8 +23,17 @@ function makeHost(name: string, tag: string): HTMLElement {
 	return host;
 }
 
+/** Default keyboard events to isolate from bubbling out shadow root. */
 const DEFAULT_ISOLATED_EVENTS = ["keyup", "keydown", "keypress"];
 
+/**
+ * Attach event stopPropagation listeners to shadow root.
+ * Prevents keyboard/custom events from bubbling to light DOM.
+ *
+ * @param shadowRoot - Shadow root to isolate
+ * @param isolateEvents - true (default events), array (custom), or false (disabled)
+ * @returns Cleanup function or null if isolation disabled
+ */
 function isolateShadowEvents(
 	shadowRoot: ShadowRoot,
 	isolateEvents: boolean | string[] | undefined,
@@ -33,6 +48,12 @@ function isolateShadowEvents(
 		events.forEach((evt) => shadowRoot.removeEventListener(evt, stop));
 }
 
+/**
+ * Place host element relative to anchor using DOM API.
+ * @param host - Element to place
+ * @param anchor - Reference element
+ * @param position - Placement relative to anchor (before/after/prepend/append/replace)
+ */
 function place(
 	host: HTMLElement,
 	anchor: Element,
@@ -56,13 +77,16 @@ function place(
 	}
 }
 
-/**
- * Tracks which (document, styleKey) pairs already got their <style>/adopted
- * sheet applied, so light-DOM modes that reuse the real page document don't
- * re-append the same styles once per anchor.
- */
+/** Track which documents already received styles for a styleKey to avoid duplication. */
 const docStyleApplied = new WeakMap<Document, Set<string>>();
 
+/**
+ * Apply CSS to document once per styleKey (dedup across anchors in light-DOM modes).
+ * @param doc - Document to apply styles to
+ * @param css - Raw CSS text
+ * @param styleKey - Dedup key
+ * @param shared - Enable stylesheet dedup
+ */
 function applyDocStyleOnce(
 	doc: Document,
 	css: string,
@@ -80,12 +104,17 @@ function applyDocStyleOnce(
 	applyStyles(doc, css, styleKey, shared);
 }
 
+/**
+ * Observe container size and resize iframe to match.
+ * @param iframe - Iframe element to resize
+ * @param container - Container inside iframe to measure
+ * @returns Cleanup function to stop observing
+ */
 function observeAutoSize(
 	iframe: HTMLIFrameElement,
 	container: HTMLElement,
 ): () => void {
 	const ro = new ResizeObserver(() => {
-		// container size drive iframe box — read from inside frame's own layout
 		const { width, height } = container.getBoundingClientRect();
 		iframe.style.width = `${Math.ceil(width)}px`;
 		iframe.style.height = `${Math.ceil(height)}px`;
@@ -95,12 +124,16 @@ function observeAutoSize(
 }
 
 /**
- * Backend = only bit that differs between shadow/integrated/iframe modes:
- * how host element made, how its style scope + first container set up, and
- * (for shadow/iframe) extra MountContext field to expose.
+ * Backend interface: abstraction for shadow/integrated/iframe injection modes.
+ * Each backend defines how host is created, styles scoped, and containers set up.
  */
 interface Backend {
+	/** Create host element with mode-specific setup. */
 	makeHost(name: string): HTMLElement;
+	/**
+	 * Set up style scope and container within/for host.
+	 * @returns container element and optional cleanup (for autoSize)
+	 */
 	setup(
 		host: HTMLElement,
 		containerTag: string,
@@ -108,14 +141,21 @@ interface Backend {
 		styleKey: string,
 		sharedStyle: boolean,
 		autoSize?: boolean,
-	): { container: HTMLElement; cleanup?: () => void }; // <- was just HTMLElement
+	): { container: HTMLElement; cleanup?: () => void };
+	/** Return extra MountContext fields specific to this backend (shadowRoot/iframe). */
 	extraCtx?(host: HTMLElement): Partial<MountContext>;
+	/** Set up event isolation if supported by backend. */
 	isolate?(
 		host: HTMLElement,
 		isolateEvents: boolean | string[] | undefined,
 	): (() => void) | null;
 }
 
+/**
+ * Shadow DOM backend: each anchor gets isolated shadow root.
+ * @param hostTag - Tag name for shadow host
+ * @returns Backend implementation
+ */
 const shadowBackend = (hostTag: string): Backend => ({
 	makeHost: (name) => makeHost(name, hostTag),
 	setup(host, containerTag, css, styleKey, sharedStyle) {
@@ -129,7 +169,7 @@ const shadowBackend = (hostTag: string): Backend => ({
 			styleKey,
 			sharedStyle,
 		);
-		return { container }; // <- wrapped, no cleanup needed
+		return { container };
 	},
 	extraCtx: (host) => (host.shadowRoot ? { shadowRoot: host.shadowRoot } : {}),
 	isolate: (host, isolateEvents) =>
@@ -138,6 +178,11 @@ const shadowBackend = (hostTag: string): Backend => ({
 			: null,
 });
 
+/**
+ * Integrated backend: content injected into light DOM, styles into page document.
+ * @param hostTag - Tag name for host
+ * @returns Backend implementation
+ */
 const integratedBackend = (hostTag: string): Backend => ({
 	makeHost: (name) => makeHost(name, hostTag),
 	setup(host, containerTag, css, styleKey, sharedStyle) {
@@ -145,17 +190,13 @@ const integratedBackend = (hostTag: string): Backend => ({
 		container.className = `${TAG_PREFIX}-container`;
 		host.appendChild(container);
 		applyDocStyleOnce(document, css, styleKey, sharedStyle);
-		return { container }; // <- wrapped
+		return { container };
 	},
 });
 
 /**
- * `hostTag` ignored here — host always `<iframe>`; `containerTag` still
- * controls element made inside it. Iframe never navigated (no src/srcdoc):
- * kept on its initial same-origin doc, forced into stable html/head/body
- * via synchronous `document.write` right after insertion (some browsers
- * don't finish populating that doc's `<body>` synchronously on own) — no
- * load event to wait for, contentDocument ready right after mount.
+ * Iframe backend: content in isolated iframe document.
+ * Iframe navigated to empty document at mount time via document.write.
  */
 const iframeBackend: Backend = {
 	makeHost: (name) => {
@@ -192,7 +233,38 @@ const iframeBackend: Backend = {
 	extraCtx: (host) => ({ iframe: host as HTMLIFrameElement }),
 };
 
-/** Generic core — shared by all three public factories below. */
+/**
+ * Build MountContext from instance and index.
+ * Reuses shadowRoot/iframe from instance to avoid reconstruction.
+ *
+ * @param instance - Mounted instance with all state
+ * @param index - Index in mounted array
+ * @returns MountContext for callbacks
+ */
+function buildMountContext(
+	instance: MountedInstance,
+	index: number,
+): MountContext {
+	const ctx: MountContext = {
+		host: instance.host,
+		wrapper: instance.host,
+		container: instance.container,
+		anchor: instance.anchor,
+		index,
+	};
+	if (instance.shadowRoot) ctx.shadowRoot = instance.shadowRoot;
+	if (instance.iframe) ctx.iframe = instance.iframe;
+	return ctx;
+}
+
+/**
+ * Core injector factory: shared by all three public injection modes.
+ * Handles anchor resolution, mounting, auto-detection, and cleanup.
+ *
+ * @param options - ContentUiOptions from user
+ * @param backend - Backend implementation (shadow/integrated/iframe)
+ * @returns ContentUi interface (mount/remove/instances)
+ */
 function createInjector(
 	options: ContentUiOptions,
 	backend: Backend,
@@ -221,6 +293,13 @@ function createInjector(
 	let stopWatching: (() => void) | null = null;
 	const known = new Set<Element>();
 
+	/**
+	 * Ensure shared host exists (lazy-create on first anchor).
+	 * All anchors in sharedRoot mode share one host + container.
+	 *
+	 * @param firstAnchor - Anchor to place shared host next to
+	 * @returns Shared host and container
+	 */
 	function ensureShared(firstAnchor: Element) {
 		if (sharedHost && sharedContainer) {
 			return { host: sharedHost, container: sharedContainer };
@@ -243,9 +322,13 @@ function createInjector(
 		return { host, container };
 	}
 
-	// Each anchor sharing a root still gets own slot, so per-anchor content
-	// doesn't collide. Slot made in container's own document — matters for
-	// iframe, where container lives in contentDocument, not main doc.
+	/**
+	 * Create slot (container) within shared container for per-anchor content.
+	 * Each anchor gets own slot to prevent content collision.
+	 *
+	 * @param container - Shared container to append slot into
+	 * @returns New slot element
+	 */
 	function makeSlot(container: HTMLElement): HTMLElement {
 		const slot = container.ownerDocument.createElement(containerTag);
 		slot.className = `${TAG_PREFIX}-slot`;
@@ -253,6 +336,13 @@ function createInjector(
 		return slot;
 	}
 
+	/**
+	 * Mount content into single anchor.
+	 * Creates host + container, calls onMount, tracks instance.
+	 *
+	 * @param el - Anchor element to mount into
+	 * @param index - Index in mounted array
+	 */
 	function mountOne(el: Element, index: number): void {
 		if (known.has(el) && !sharedRoot) return;
 		known.add(el);
@@ -304,14 +394,14 @@ function createInjector(
 		} as MountedInstance);
 	}
 
+	/**
+	 * Mount into all currently matching anchors, start auto-detect if enabled.
+	 */
 	function mountAll(): void {
 		const anchors = resolveAnchors(anchor);
 		anchors.forEach((el, i) => mountOne(el, i));
 
 		if (autoDetect && typeof anchor === "string") {
-			// Separate set: watchForAnchors marks elements "known" soon as it
-			// sees them (before onNew runs) — sharing one set with mountOne's
-			// dedup guard would make it skip the mount entirely.
 			const watchKnown = new Set(known);
 			stopWatching = watchForAnchors(anchor, watchKnown, (el) =>
 				mountOne(el, mounted.length),
@@ -319,16 +409,13 @@ function createInjector(
 		}
 	}
 
+	/**
+	 * Unmount single instance, call onRemove, clean up listeners/observers.
+	 * @param instance - Mounted instance to remove
+	 */
 	function unmountInstance(instance: MountedInstance): void {
-		const ctx: MountContext = {
-			host: instance.host,
-			wrapper: instance.host,
-			container: instance.container,
-			anchor: instance.anchor,
-			index: mounted.indexOf(instance),
-			...(instance.shadowRoot ? { shadowRoot: instance.shadowRoot } : {}),
-			...(instance.iframe ? { iframe: instance.iframe } : {}),
-		};
+		const index = mounted.indexOf(instance);
+		const ctx = buildMountContext(instance, index);
 		onRemove?.(instance.result, ctx);
 		instance.isolateCleanup?.();
 		instance.sizeCleanup?.();
@@ -338,6 +425,9 @@ function createInjector(
 
 	return {
 		mount: mountAll,
+		/**
+		 * Unmount all instances, stop auto-detect, clean up all resources.
+		 */
 		remove: () => {
 			stopWatching?.();
 			stopWatching = null;
@@ -349,7 +439,7 @@ function createInjector(
 				sharedContainer = null;
 				sharedIsolateCleanup?.();
 				sharedIsolateCleanup = null;
-				sharedSizeCleanup?.(); // <- call
+				sharedSizeCleanup?.();
 				sharedSizeCleanup = null;
 			} else {
 				for (const instance of mounted) instance.host.remove();
@@ -358,18 +448,36 @@ function createInjector(
 			mounted = [];
 			known.clear();
 		},
+		/** Return copy of current mounted instances in mount order. */
 		instances: () => [...mounted],
 	};
 }
 
+/**
+ * Create shadow DOM injector: each anchor gets isolated shadow root.
+ * @param options - ContentUiOptions with name, anchor, onMount, etc.
+ * @returns ContentUi interface
+ */
 export function createShadowRootUi(options: ContentUiOptions): ContentUi {
 	return createInjector(options, shadowBackend(options.hostTag ?? "div"));
 }
 
+/**
+ * Create integrated DOM injector: content in light DOM, styles in page document.
+ * Use when shadow DOM isolation not needed or desired.
+ * @param options - ContentUiOptions
+ * @returns ContentUi interface
+ */
 export function createIntegratedUi(options: ContentUiOptions): ContentUi {
 	return createInjector(options, integratedBackend(options.hostTag ?? "div"));
 }
 
+/**
+ * Create iframe injector: content in isolated same-origin iframe.
+ * Fullest isolation; no CSS bleeding or event bubbling.
+ * @param options - ContentUiOptions (hostTag ignored, always iframe)
+ * @returns ContentUi interface
+ */
 export function createIframeUi(options: ContentUiOptions): ContentUi {
 	return createInjector(options, iframeBackend);
 }
