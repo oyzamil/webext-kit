@@ -1,5 +1,23 @@
-/** Registry of shared CSSStyleSheet objects, keyed by styleKey + css text hash. */
-const sheetRegistry = new Map<string, CSSStyleSheet | null>();
+import { ownerDocumentOf, styleParent } from "./dom-utils";
+
+/**
+ * Registry of shared CSSStyleSheet objects, keyed by styleKey + css text hash.
+ *
+ * Backed by `globalThis` (not a module-local Map) so it's shared across
+ * separate content-script bundles. Each `defineContentScript` entry is
+ * built and executed as its own file/module graph, so a plain module-level
+ * `const` here would give every content script its own copy — no dedup
+ * across scripts even though they run in the same isolated-world global
+ * object for a given frame. Keying off `globalThis` fixes that.
+ */
+const REGISTRY_KEY = "__webext_content_ui_sheet_registry__";
+function getSheetRegistry(): Map<string, CSSStyleSheet | null> {
+	const g = globalThis as typeof globalThis & {
+		[REGISTRY_KEY]?: Map<string, CSSStyleSheet | null>;
+	};
+	if (!g[REGISTRY_KEY]) g[REGISTRY_KEY] = new Map();
+	return g[REGISTRY_KEY];
+}
 
 /** Regex to detect @import rules in CSS (cheap heuristic). */
 const HAS_IMPORT = /@import\b/i;
@@ -41,6 +59,7 @@ function registryKey(styleKey: string, css: string): string {
  * @returns CSSStyleSheet or null (for @import or failed construction)
  */
 function getOrCreateSheet(styleKey: string, css: string): CSSStyleSheet | null {
+	const sheetRegistry = getSheetRegistry();
 	const key = registryKey(styleKey, css);
 	if (sheetRegistry.has(key)) return sheetRegistry.get(key)!;
 
@@ -58,15 +77,6 @@ function getOrCreateSheet(styleKey: string, css: string): CSSStyleSheet | null {
 	}
 	sheetRegistry.set(key, sheet);
 	return sheet;
-}
-
-/**
- * Check if node is a Document (realm-safe via nodeType, not instanceof).
- * @param node - Node to check
- * @returns True if node is Document
- */
-function isDocument(node: ShadowRoot | Document): node is Document {
-	return node.nodeType === 9; // Node.DOCUMENT_NODE
 }
 
 /**
@@ -94,20 +104,17 @@ export function applyStyles(
 		}
 	}
 
-	const doc = isDocument(root) ? root : (root.ownerDocument ?? document);
-	const style = doc.createElement("style");
+	const style = ownerDocumentOf(root).createElement("style");
 	style.textContent = css;
 	style.dataset.styleKey = styleKey;
-	(isDocument(root) ? (root.head ?? root.documentElement) : root).appendChild(
-		style,
-	);
+	styleParent(root).appendChild(style);
 }
 
 /**
  * Clear all registered shared stylesheets. Use for test isolation.
  */
 export function clearSharedStyleRegistry(): void {
-	sheetRegistry.clear();
+	getSheetRegistry().clear();
 }
 
 /**
@@ -117,5 +124,30 @@ export function clearSharedStyleRegistry(): void {
  * @returns Number of cached styles
  */
 export function sharedStyleRegistrySize(): number {
-	return sheetRegistry.size;
+	return getSheetRegistry().size;
+}
+
+/**
+ * Fetch CSS text once and cache the in-flight/settled promise on `globalThis`,
+ * keyed by URL. Use this in `main()` before calling createShadowRootUi when
+ * cssInjectionMode is "manual" and multiple content scripts share the same
+ * built CSS file (e.g. a shared Tailwind bundle) — the first content script
+ * to run does the fetch, every later one (same page, same frame) reuses it.
+ *
+ * @param url - browser.runtime.getURL(...) result for the built CSS file
+ * @returns Promise resolving to the CSS text
+ */
+const FETCH_CACHE_KEY = "__webext_content_ui_css_fetch_cache__";
+export function getSharedCssText(url: string): Promise<string> {
+	const g = globalThis as typeof globalThis & {
+		[FETCH_CACHE_KEY]?: Map<string, Promise<string>>;
+	};
+	if (!g[FETCH_CACHE_KEY]) g[FETCH_CACHE_KEY] = new Map();
+	const cache = g[FETCH_CACHE_KEY];
+	let pending = cache.get(url);
+	if (!pending) {
+		pending = fetch(url).then((r) => r.text());
+		cache.set(url, pending);
+	}
+	return pending;
 }

@@ -1,6 +1,6 @@
 {
 	"name": "webext-content-ui",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Inject elements into shadow DOM — single or batch anchors, with optional shared styles across shadow roots. Combines Plasmo's batch-anchor injection with WXT's clean UI API.",
 	"homepage": "https://github.com/oyzamil/webext-kit#readme",
 	"repository": {

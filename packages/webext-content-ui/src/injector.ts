@@ -1,4 +1,6 @@
 import { resolveAnchors, watchForAnchors } from "./anchor";
+import { onLocationChange as subscribeLocationChange } from "./location-watcher";
+import { matchesAnyPattern } from "./match-pattern";
 import { applyStyles } from "./shared-styles";
 import {
 	type ContentUi,
@@ -281,6 +283,9 @@ function createInjector(
 		containerTag = "div",
 		isolateEvents = true,
 		autoSize = true,
+		matches,
+		watchLocationChange = false,
+		onLocationChange: onLocationChangeOption,
 		onMount,
 		onRemove,
 	} = options;
@@ -291,7 +296,17 @@ function createInjector(
 	let sharedSizeCleanup: (() => void) | null = null;
 	let sharedIsolateCleanup: (() => void) | null = null;
 	let stopWatching: (() => void) | null = null;
+	let stopLocationWatching: (() => void) | null = null;
 	const known = new Set<Element>();
+
+	/**
+	 * Whether the current page matches `options.matches` (always true when unset).
+	 * @returns True if this UI is allowed to mount on the current URL
+	 */
+	function urlMatches(): boolean {
+		if (!matches || matches.length === 0) return true;
+		return matchesAnyPattern(location.href, matches);
+	}
 
 	/**
 	 * Ensure shared host exists (lazy-create on first anchor).
@@ -396,17 +411,45 @@ function createInjector(
 
 	/**
 	 * Mount into all currently matching anchors, start auto-detect if enabled.
+	 * No-op if `options.matches` is set and the current URL doesn't match.
 	 */
 	function mountAll(): void {
+		if (!urlMatches()) return;
+
 		const anchors = resolveAnchors(anchor);
 		anchors.forEach((el, i) => mountOne(el, i));
 
-		if (autoDetect && typeof anchor === "string") {
+		if (autoDetect && typeof anchor === "string" && !stopWatching) {
 			const watchKnown = new Set(known);
 			stopWatching = watchForAnchors(anchor, watchKnown, (el) =>
 				mountOne(el, mounted.length),
 			);
 		}
+	}
+
+	/**
+	 * Unmount every instance and tear down shared host/watchers. Shared by remove() and
+	 * by the location-change handler (when navigation moves off a matching URL).
+	 */
+	function teardown(): void {
+		stopWatching?.();
+		stopWatching = null;
+		for (const instance of mounted) unmountInstance(instance);
+
+		if (sharedRoot) {
+			sharedHost?.remove();
+			sharedHost = null;
+			sharedContainer = null;
+			sharedIsolateCleanup?.();
+			sharedIsolateCleanup = null;
+			sharedSizeCleanup?.();
+			sharedSizeCleanup = null;
+		} else {
+			for (const instance of mounted) instance.host.remove();
+		}
+
+		mounted = [];
+		known.clear();
 	}
 
 	/**
@@ -424,29 +467,34 @@ function createInjector(
 	}
 
 	return {
-		mount: mountAll,
 		/**
-		 * Unmount all instances, stop auto-detect, clean up all resources.
+		 * Mount into all currently matching anchors. If `watchLocationChange` or
+		 * `onLocationChange` is set, also starts watching for SPA navigation — mounting/
+		 * unmounting as `matches` starts or stops applying, and (if provided) calling
+		 * `onLocationChange` after that reaction on every navigation.
+		 */
+		mount: () => {
+			mountAll();
+
+			if ((watchLocationChange || onLocationChangeOption) && !stopLocationWatching) {
+				stopLocationWatching = subscribeLocationChange((detail) => {
+					const matched = urlMatches();
+					if (matched) {
+						if (mounted.length === 0 && !sharedHost) mountAll();
+					} else if (mounted.length > 0 || sharedHost) {
+						teardown();
+					}
+					onLocationChangeOption?.({ ...detail, matches: matched });
+				});
+			}
+		},
+		/**
+		 * Unmount all instances, stop auto-detect and location watching, clean up all resources.
 		 */
 		remove: () => {
-			stopWatching?.();
-			stopWatching = null;
-			for (const instance of mounted) unmountInstance(instance);
-
-			if (sharedRoot) {
-				sharedHost?.remove();
-				sharedHost = null;
-				sharedContainer = null;
-				sharedIsolateCleanup?.();
-				sharedIsolateCleanup = null;
-				sharedSizeCleanup?.();
-				sharedSizeCleanup = null;
-			} else {
-				for (const instance of mounted) instance.host.remove();
-			}
-
-			mounted = [];
-			known.clear();
+			stopLocationWatching?.();
+			stopLocationWatching = null;
+			teardown();
 		},
 		/** Return copy of current mounted instances in mount order. */
 		instances: () => [...mounted],

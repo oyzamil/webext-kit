@@ -1,3 +1,5 @@
+import type { LocationChangeDetail } from "./location-watcher";
+
 /** A resolved anchor value: a live Element, or a static/live collection of them. */
 export type AnchorValue =
 	| Element
@@ -139,6 +141,35 @@ export interface ContentUiOptions {
 	 * @default "div"
 	 */
 	containerTag?: keyof HTMLElementTagNameMap;
+
+	/**
+	 * WebExtension-style URL match patterns (e.g. "*://*.aliexpress.com/p/order/index.html*",
+	 * or "<all_urls>"). When set, `mount()` is a no-op unless `location.href` matches at
+	 * least one pattern. Distinct from your manifest's `matches` — this is a finer filter
+	 * *within* an already-injected content script (e.g. one script covers a whole domain,
+	 * but this particular UI should only mount on order pages).
+	 */
+	matches?: string[];
+
+	/**
+	 * Re-evaluate `matches` on SPA navigation (pushState/replaceState route changes, no
+	 * full page load) and mount/unmount accordingly. Useful on sites like AliExpress where
+	 * navigating into an order page doesn't reload the document. Implied `true` when
+	 * `onLocationChange` is provided — set this explicitly only if you want the
+	 * mount/unmount behavior without a callback. Default: false.
+	 * @default false
+	 */
+	watchLocationChange?: boolean;
+
+	/**
+	 * Called on every SPA navigation (whether or not it changes anything about this UI's
+	 * own mount state — check `detail.matches` if you only care when it does). Setting
+	 * this option starts the location watcher on its own; you don't also need
+	 * `watchLocationChange: true`. Runs AFTER this injector's own mount/unmount reaction
+	 * to the same navigation, so `instances()` already reflects the new state by the time
+	 * your callback fires.
+	 */
+	onLocationChange?: (detail: LocationChangeDetail & { matches: boolean }) => void;
 
 	/** Called once per matched anchor after its shadow root/container exist. */
 	onMount: (ctx: MountContext) => MountResult;

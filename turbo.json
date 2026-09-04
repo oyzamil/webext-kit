@@ -15,7 +15,7 @@
 			"persistent": true
 		},
 		"build": {
-			"outputs": ["dist/**"],
+			"outputs": ["dist/**", ".output/**"],
 			"dependsOn": ["^build"]
 		},
 		"test": {
