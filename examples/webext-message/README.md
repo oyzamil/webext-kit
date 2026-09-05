@@ -39,16 +39,32 @@ Complete demonstration of `webext-message` messaging library integrated with WXT
 - useMessage hook
 - usePort hook
 - Real-time activity logging
+- Sends a message to the content script (relayed through the background)
+
+### 8. Options Page
+- Opened programmatically via `browser.runtime.openOptionsPage()`
+- Fetches/receives a message that originated in the content script
+
+### 9. Cross-Context Relay Patterns
+- Popup → background → content script (`relay-to-content`)
+- Content script → background → options page + popup (`open-and-notify`),
+  which also opens those pages using `browser.runtime.openOptionsPage()`
+  and (best-effort) `browser.action.openPopup()`
+- A floating button panel injected into the page (Shadow DOM) triggers both
+  content-script-initiated flows
 
 ## Project Structure
 
 ```
 src/
 ├── background.ts          # Background service worker
-├── content.ts            # Content script
-└── popup/
-    ├── index.html        # Popup HTML
-    └── index.tsx         # React popup component
+├── content.ts            # Content script (also injects a demo button panel)
+├── popup/
+│   ├── index.html        # Popup HTML
+│   └── index.tsx         # React popup component
+└── options/
+    ├── index.html        # Options page HTML
+    └── index.tsx         # React options page component
 wxt.config.ts            # WXT configuration
 tsconfig.json            # TypeScript config
 package.json             # Dependencies
@@ -141,8 +157,30 @@ broadcast({
 3. Click "Load unpacked"
 4. Select the `dist` directory
 5. Click extension icon to open popup
-6. Use buttons to test different messaging patterns
-7. Check console logs (Inspect popup/background)
+6. Use buttons to test different messaging patterns, including "📨 Send to
+   Content Script" (open a matching page first, e.g. `example.com`)
+7. Visit a page matching the content script's `matches` pattern
+   (`*://*.example.com/*`) to see the injected button panel in the
+   bottom-right corner; use "📤 Send to Background" and
+   "🔔 Notify Options + Popup"
+8. Check console logs (Inspect popup/background/content script)
+
+## Opening Extension Pages Programmatically
+
+Content scripts and the background can't message an options page or popup
+that isn't open yet — there's nothing listening on the other end. To reach
+them, open the page first with the real WebExtension APIs, then let the page
+pull (or push) the message once it mounts:
+
+```typescript
+// Correct — there is no browser.openOptionsPage() or browser.openAction()
+await browser.runtime.openOptionsPage();
+await browser.action.openPopup(); // MV3; browser support varies, so wrap in try/catch
+```
+
+Both of these must be called from a privileged context (background or an
+existing extension page) — not from a content script directly. See the
+`open-and-notify` handler in `background.ts` for the full pattern.
 
 ## Key Concepts
 

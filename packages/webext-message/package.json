@@ -102,14 +102,14 @@
 		}
 	},
 	"devDependencies": {
-		"@types/chrome": "catalog:",
-		"@types/node": "catalog:",
-		"@types/react": "catalog:",
-		"jsdom": "catalog:",
-		"tsdown": "catalog:",
-		"vitest": "catalog:",
+		"@types/chrome": "*",
+		"@types/node": "*",
+		"@types/react": "*",
+		"jsdom": "*",
+		"tsdown": "*",
+		"vitest": "*",
 		"react": "^19.2.8",
-		"typescript": "catalog:"
+		"typescript": "*"
 	},
 	"dependencies": {
 		"nanoid": "^6.0.1",

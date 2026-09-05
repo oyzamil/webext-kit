@@ -89,7 +89,10 @@ export function useMessageRelay<RequestBody = any>(
 		// Import here to avoid circular dependency
 		const relayMessageFn = require("./index")
 			.relayMessage as ExtMessaging.MessageRelayFx;
-		relayMessageFn(req);
+		// relayMessageFn returns an unsubscribe fn — must be returned from
+		// the effect so React actually tears the relay down, otherwise it
+		// keeps stacking one live listener per mount/dep-change forever.
+		return relayMessageFn(req);
 	}, [req.name, req.relayId]);
 }
 

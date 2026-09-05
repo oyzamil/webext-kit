@@ -24,24 +24,41 @@ export const relay: ExtMessaging.RelayFx = (
 			const relayPayload = {
 				name: req.name,
 				relayId: req.relayId,
+				requestId: event.data.requestId,
 				body: event.data.body,
 			};
-
-			const backgroundResponse = await onMessage?.(relayPayload);
 			const targetOrigin = req.targetOrigin || "/";
 
-			messagePort.postMessage(
-				{
-					name: req.name,
-					relayId: req.relayId,
-					instanceId: event.data.instanceId,
-					body: backgroundResponse,
-					relayed: true,
-				},
-				{
-					targetOrigin,
-				},
-			);
+			try {
+				const backgroundResponse = await onMessage?.(relayPayload);
+				messagePort.postMessage(
+					{
+						name: req.name,
+						relayId: req.relayId,
+						instanceId: event.data.instanceId,
+						body: backgroundResponse,
+						relayed: true,
+					},
+					{
+						targetOrigin,
+					},
+				);
+			} catch (error) {
+				// Post the failure back instead of leaving the sender
+				// hanging until its own timeout fires.
+				messagePort.postMessage(
+					{
+						name: req.name,
+						relayId: req.relayId,
+						instanceId: event.data.instanceId,
+						error: error instanceof Error ? error.message : String(error),
+						relayed: true,
+					},
+					{
+						targetOrigin,
+					},
+				);
+			}
 		}
 	};
 
@@ -52,7 +69,10 @@ export const relay: ExtMessaging.RelayFx = (
 /**
  * Sends a request through a `window.postMessage` relay (set up on
  * the other end via {@link relay}) and resolves with the relayed
- * response. Rejects if no response arrives within 30s.
+ * response. Rejects if the relay handler threw (`event.data.error`),
+ * or if no response arrives within `req.timeoutMs` (default 30s —
+ * kept finite so a dead relay on the other end can't hang the
+ * caller forever).
  */
 export const sendViaRelay: ExtMessaging.SendFx = (
 	req,
@@ -60,7 +80,14 @@ export const sendViaRelay: ExtMessaging.SendFx = (
 ) =>
 	new Promise((resolve, reject) => {
 		const instanceId = nanoid();
+		const requestId = req.requestId || nanoid(8);
 		const targetOrigin = req.targetOrigin || "/";
+		const timeoutMs = req.timeoutMs ?? 30_000;
+
+		const cleanup = () => {
+			messagePort.removeEventListener("message", handler);
+			clearTimeout(timer);
+		};
 
 		const handler = (evt: Event) => {
 			const event = evt as MessageEvent<ExtMessaging.RelayMessage>;
@@ -70,8 +97,12 @@ export const sendViaRelay: ExtMessaging.SendFx = (
 				event.data.relayed &&
 				event.data.instanceId === instanceId
 			) {
-				messagePort.removeEventListener("message", handler);
-				resolve(event.data.body);
+				cleanup();
+				if (event.data.error) {
+					reject(new Error(`Relay error: ${event.data.error}`));
+				} else {
+					resolve(event.data.body);
+				}
 			}
 		};
 
@@ -82,6 +113,7 @@ export const sendViaRelay: ExtMessaging.SendFx = (
 				name: req.name,
 				body: req.body,
 				relayId: req.relayId,
+				requestId,
 				instanceId,
 				targetOrigin,
 			},
@@ -90,9 +122,8 @@ export const sendViaRelay: ExtMessaging.SendFx = (
 			},
 		);
 
-		// Add timeout for relay
-		setTimeout(() => {
-			messagePort.removeEventListener("message", handler);
+		const timer = setTimeout(() => {
+			cleanup();
 			reject(new Error(`Relay timeout for message: ${req.name}`));
-		}, 30000);
+		}, timeoutMs);
 	});

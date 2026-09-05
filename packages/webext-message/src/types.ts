@@ -60,6 +60,10 @@ export namespace ExtMessaging {
 		relayId?: string;
 		/** `postMessage` target origin, for window relays. */
 		targetOrigin?: string;
+		/** Unique id for this request, auto-generated if omitted. Useful for tracing. */
+		requestId?: string;
+		/** Per-request override for how long to wait before timing out, in ms. */
+		timeoutMs?: number;
 	};
 
 	/**
@@ -70,6 +74,8 @@ export namespace ExtMessaging {
 	export type RelayMessage<TName = any, TBody = any> = Request<TName, TBody> & {
 		instanceId: string;
 		relayed: boolean;
+		/** Set instead of `body` when the relayed `onMessage` handler threw. */
+		error?: string;
 	};
 
 	/**

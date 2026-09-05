@@ -1,9 +1,10 @@
 import {
+	broadcast,
 	initializeBackgroundMessaging,
 	onMessage,
 	onPortConnect,
+	sendToContentScript,
 	startHub,
-	broadcast,
 } from "webext-message";
 
 export default defineBackground(() => {
@@ -97,7 +98,7 @@ export default defineBackground(() => {
 			const { type, payload } = request.body || {};
 
 			try {
-				let result;
+				let result: any;
 				switch (type) {
 					case "fetch":
 						result = { fetched: true, items: [1, 2, 3] };
@@ -155,6 +156,100 @@ export default defineBackground(() => {
 			}
 		},
 	);
+
+	// Example 8: Relay a message from the popup to a content script.
+	// Popups can't be targeted by sendToContentScript() directly (they aren't
+	// tabs), and content scripts can't call it at all (it's background-only),
+	// so the background acts as the go-between.
+	onMessage<{ tabId: number; message: string }, { relayed: boolean }>(
+		async (request, response) => {
+			if (request.name === "relay-to-content") {
+				const { tabId, message } = request.body || {};
+
+				if (tabId) {
+					await sendToContentScript<
+						{ message: string },
+						{ acknowledged: boolean }
+					>({
+						tabId,
+						name: "content-notify-popup",
+						body: { message: message || "" },
+					});
+				}
+
+				response.send({ relayed: true });
+			}
+		},
+	);
+
+	// Example 9: Content script asks the background to open the options page
+	// and the popup, then hand them a message. Options/popup pages aren't
+	// tabs either, so instead of "sending" to them directly we (a) open them
+	// with the real extension APIs and (b) stash the message so they can pull
+	// it as soon as they mount via `get-latest-notification`.
+	const latestNotifications: {
+		options: { message: string; timestamp: number } | null;
+		popup: { message: string; timestamp: number } | null;
+	} = { options: null, popup: null };
+
+	onMessage<
+		{ target: "options" | "popup"; message: string },
+		{ opened: boolean }
+	>(async (request, response) => {
+		if (request.name === "open-and-notify") {
+			const target = request.body?.target;
+			const message = request.body?.message || "";
+
+			if (target === "options" || target === "popup") {
+				latestNotifications[target] = { message, timestamp: Date.now() };
+
+				if (target === "options") {
+					try {
+						// The real API is `runtime.openOptionsPage()` — there is no
+						// `browser.openOptionsPage()`.
+						await browser.runtime.openOptionsPage();
+					} catch (error) {
+						console.error("[Background] Failed to open options page:", error);
+					}
+				} else {
+					try {
+						// The real API is `action.openPopup()` (MV3) — there is no
+						// `browser.openAction()`. Support for opening the popup
+						// programmatically is newer and browser-dependent, so this
+						// is best-effort.
+						await browser.action.openPopup();
+					} catch (error) {
+						console.warn(
+							"[Background] action.openPopup() isn't supported here:",
+							error,
+						);
+					}
+				}
+
+				// Also broadcast, in case the target page is already open and
+				// subscribed when this fires.
+				broadcast({
+					payload: {
+						type: "notification",
+						target,
+						...latestNotifications[target],
+					},
+				});
+			}
+
+			response.send({ opened: true });
+		}
+	});
+
+	onMessage<
+		{ target: "options" | "popup" },
+		{ message: string; timestamp: number } | null
+	>(async (request, response) => {
+		if (request.name === "get-latest-notification") {
+			const target = request.body?.target;
+			response.send(target ? latestNotifications[target] : null);
+		}
+	});
 
 	console.log("[Background] All message handlers registered");
 });

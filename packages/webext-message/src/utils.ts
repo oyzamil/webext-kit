@@ -46,9 +46,41 @@ export const getExtTabs = () => {
 };
 
 /**
- * Resolves the currently active tab in the current window, if any.
+ * Resolves currently active tab in current window.
+ *
+ * Queries extension tabs API for single active tab in focused window.
+ * Returns undefined if no active tab found (e.g., no windows open,
+ * user permission not granted). Throws if tabs API unavailable.
+ *
+ * Useful for sending messages from background/popup to active content script
+ * without requiring caller to specify tabId.
+ *
+ * @returns Promise resolving to active tab object, or undefined if none
+ * @throws Error if extension tabs API is not available (background context only)
+ *
+ * @example
+ * ```typescript
+ * // From popup/background: send message to active content script
+ * const tab = await getActiveTab();
+ * if (tab?.id) {
+ *   await sendToContentScript({
+ *     tabId: tab.id,
+ *     name: 'analyze',
+ *     body: { url: tab.url }
+ *   });
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Check if specific tab is active
+ * const activeTab = await getActiveTab();
+ * if (activeTab?.id === targetTabId) {
+ *   console.log('Target tab is currently active');
+ * }
+ * ```
  */
-export const getActiveTab = async () => {
+export const getActiveTab = async (): Promise<chrome.tabs.Tab | undefined> => {
 	const tabs = getExtTabs();
 	const [tab] = await tabs.query({
 		active: true,
@@ -66,11 +98,26 @@ export const getActiveTab = async () => {
 export const isSameOrigin = (
 	event: MessageEvent,
 	req: any,
-): req is ExtMessaging.Request =>
-	!req.__internal &&
-	event.source === globalThis.window &&
-	event.data.name === req.name &&
-	(req.relayId === undefined || event.data.relayId === req.relayId);
+): req is ExtMessaging.Request => {
+	// "/" is the postMessage shorthand for "same origin as this document",
+	// not a literal value `event.origin` will ever equal — normalize it.
+	const targetOrigin =
+		!req.targetOrigin || req.targetOrigin === "/"
+			? window.location.origin
+			: req.targetOrigin;
+
+	return (
+		!req.__internal &&
+		event.source === globalThis.window &&
+		// Real `MessageEvent`s always carry `origin`; only synthetic test
+		// doubles omit it, so this only ever tightens production behavior.
+		(targetOrigin === "*" ||
+			event.origin === undefined ||
+			event.origin === targetOrigin) &&
+		event.data.name === req.name &&
+		(req.relayId === undefined || event.data.relayId === req.relayId)
+	);
+};
 
 /**
  * Best-effort detection of which extension context the current code

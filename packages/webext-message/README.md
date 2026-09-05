@@ -150,6 +150,39 @@ export function SearchUI() {
 
 ---
 
+## 🧭 Context Compatibility Matrix
+
+Not every function can be called from every context. Use this as a quick lookup for which functions belong in `background.ts`, which belong in a content script, and which belong in a UI page (popup/options).
+
+Format: `{caller context} => {valid target context(s)}`
+
+```
+{background}      => {"contentscript", "alltabs"}      // sendToContentScript(), broadcast()
+{contentscript}    => {"background", "page"}             // sendToBackground(), relayMessage()
+{popup}            => {"background"}                     // sendToBackground() (relay through background to reach a content script)
+{options}          => {"background"}                     // sendToBackground() (relay through background to reach a content script)
+{page}             => {"background(via relay)"}          // sendViaRelay() through a content script's relay()
+```
+
+### Function-by-function
+
+| Function | Callable from | Reaches |
+|----------|----------------|---------|
+| `sendToBackground()` | content script, popup, options | background |
+| `sendToContentScript()` | background | a specific tab's content script |
+| `onMessage()` | any context (background, content script, popup, options) | listens only — receives whatever is routed to that context |
+| `startHub()` | background | n/a (initializes the hub) |
+| `broadcast()` | background | every tab currently subscribed |
+| `subscribe()` | content script (or any context with a listener registered) | listens for `broadcast()` payloads |
+| `onPort()` / `getPort()` / `listen()` | background ↔ content script | long-lived port between those two contexts |
+| `relayMessage()` / `relay()` | content script | bridges `window.postMessage` from the page context |
+| `sendViaRelay()` | page context (via the content script's relay bridge) | background (through the content script) |
+| `useMessage()` / `usePort()` / `useRelay()` | any React UI (popup, options, injected panel) | same rules as their non-hook counterparts above |
+
+**Key takeaway:** popup and options pages are not tabs, so they can't be targeted directly by `sendToContentScript()` or reached directly from a content script — route those messages through the background script (`sendToBackground()` → background handler → `sendToContentScript()`, or vice versa). The example extension's popup → content script button and content script → options/popup button both demonstrate this relay pattern.
+
+---
+
 ## 💡 Examples
 
 ### Example 1: Simple Messages
@@ -340,21 +373,3 @@ debugger.printStats()
 ## 📄 License
 
 MIT - See [LICENSE](LICENSE) for details
-
----
-
-## 🎉 Getting Started
-
-```bash
-# Install
-npm install webext-message
-
-# Setup background
-npm install --save-dev @types/chrome
-
-# Start building!
-```
-
----
-
-**Made for browser extensions. Built for production. Documented thoroughly. Ready to use.**

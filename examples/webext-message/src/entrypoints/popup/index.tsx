@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from "react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { sendToBackground } from "webext-message";
+import { getActiveTab, sendToBackground } from "webext-message";
 import { useMessage, usePort } from "webext-message/hook";
 
 interface MessageResult {
@@ -117,6 +118,54 @@ const PopupApp: React.FC = () => {
 		}
 	}, [addLog]);
 
+	// Example: Send a message to the content script. Popups aren't tabs, so
+	// sendToContentScript() can't be called from here directly — relay it
+	// through the background instead.
+	const handleSendToContentScript = useCallback(async () => {
+		setLoading(true);
+		try {
+			const tab = await getActiveTab();
+			if (!tab?.id) {
+				throw new Error("No active tab found");
+			}
+
+			const response = await sendToBackground<
+				{ tabId: number; message: string },
+				{ relayed: boolean }
+			>({
+				name: "relay-to-content",
+				body: { tabId: tab.id, message: "Hello from the popup!" },
+			});
+
+			addLog(`Relayed to content script: ${JSON.stringify(response)}`);
+		} catch (error) {
+			addLog(
+				`Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, [addLog]);
+
+	// Pick up any notification the content script asked the background to
+	// hand us (see the "Notify Options + Popup" button on the page).
+	useEffect(() => {
+		(async () => {
+			try {
+				const notification = await sendToBackground<
+					Record<string, never>,
+					{ message: string; timestamp: number } | null
+				>({ name: "get-latest-notification" });
+
+				if (notification) {
+					addLog(`Notification from content script: ${notification.message}`);
+				}
+			} catch {
+				// No pending notification yet — nothing to do.
+			}
+		})();
+	}, [addLog]);
+
 	const handlePortMessage = useCallback(() => {
 		sendToPort({ type: "ping", timestamp: Date.now() });
 		addLog("Port message sent");
@@ -182,6 +231,14 @@ const PopupApp: React.FC = () => {
 							disabled={loading}
 						>
 							📢 Broadcast
+						</button>
+
+						<button
+							style={styles.button}
+							onClick={handleSendToContentScript}
+							disabled={loading}
+						>
+							📨 Send to Content Script
 						</button>
 					</div>
 				</section>

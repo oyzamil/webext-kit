@@ -106,14 +106,23 @@ export const onPortConnect = (
 			return;
 		}
 
-		const result = await handler(port);
+		try {
+			const result = await handler(port);
 
-		if (result?.onMessage) {
-			port.onMessage.addListener(result.onMessage);
+			if (result?.onMessage) {
+				port.onMessage.addListener(result.onMessage);
+			}
+			port.onDisconnect.addListener(() => {
+				try {
+					result?.onDisconnect?.();
+				} catch (error) {
+					console.error(`Port disconnect handler error for '${name}':`, error);
+				}
+			});
+		} catch (error) {
+			console.error(`Port connect handler error for '${name}':`, error);
+			port.disconnect();
 		}
-		port.onDisconnect.addListener(() => {
-			result?.onDisconnect?.();
-		});
 	};
 
 	runtime.onConnect.addListener(connectListener);

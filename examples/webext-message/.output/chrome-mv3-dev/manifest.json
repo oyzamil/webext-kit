@@ -12,6 +12,10 @@
     "*://*.example.com/*",
     "http://localhost/*"
   ],
+  "options_ui": {
+    "page": "opts.html",
+    "open_in_tab": true
+  },
   "commands": {
     "wxt:reload-extension": {
       "description": "Reload the extension during development",

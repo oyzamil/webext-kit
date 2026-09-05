@@ -7,6 +7,10 @@ export default defineConfig({
 		description: "Comprehensive demo of webext-message messaging library",
 		permissions: ["tabs", "scripting"],
 		host_permissions: ["<all_urls>"],
+		options_ui: {
+			page: "opts.html",
+			open_in_tab: true,
+		},
 	},
 	srcDir: "src",
 	webExt: {

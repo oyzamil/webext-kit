@@ -5,7 +5,6 @@ declare module "wxt/browser" {
   export type PublicPath =
     | ""
     | "/"
-    | "/background.js"
     | "/content-scripts/aliexpress.js"
     | "/content-scripts/ebay.js"
     | "/content-scripts/shared.js"

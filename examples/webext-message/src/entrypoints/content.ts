@@ -1,12 +1,13 @@
 import {
+	onMessage,
 	sendToBackground,
 	sendToBackgroundViaRelay,
-	onMessage,
 } from "webext-message";
 
 export default defineContentScript({
 	matches: ["*://*.example.com/*"],
-	main() {
+	cssInjectionMode: "ui",
+	async main(ctx) {
 		console.log("[Content Script] Initialized");
 
 		// Listen for messages from background
@@ -15,6 +16,20 @@ export default defineContentScript({
 				console.log("[Content Script] Received from background:", request);
 
 				if (request.name === "content-notify") {
+					response.send({ acknowledged: true });
+				}
+			},
+		);
+
+		// Listen for messages relayed from the popup (popup -> background ->
+		// here, since sendToContentScript() is background-only).
+		onMessage<{ message: string }, { acknowledged: boolean }>(
+			async (request, response) => {
+				if (request.name === "content-notify-popup") {
+					console.log(
+						"[Content Script] Message relayed from popup:",
+						request.body?.message,
+					);
 					response.send({ acknowledged: true });
 				}
 			},
@@ -92,6 +107,30 @@ export default defineContentScript({
 			}
 		}
 
+		// Example: Ask the background to open the options page + popup and
+		// hand each of them a message. Content scripts can't reach those pages
+		// directly (they aren't tabs), so this goes through the background.
+		function notifyOptionsAndPopup(target: "options" | "popup") {
+			return async () => {
+				try {
+					const response = await sendToBackground<
+						{ target: "options" | "popup"; message: string },
+						{ opened: boolean }
+					>({
+						name: "open-and-notify",
+						body: {
+							target,
+							message: `Hello ${target} from the content script button!`,
+						},
+					});
+
+					console.log("[Content Script] Open & notify response:", response);
+				} catch (error) {
+					console.error("[Content Script] Open & notify error:", error);
+				}
+			};
+		}
+
 		// Make functions available on window for testing
 		if (typeof window !== "undefined") {
 			(window as any).__extMessagingDemo = {
@@ -99,6 +138,7 @@ export default defineContentScript({
 				processData,
 				getTabInfo,
 				relayMessage,
+				notifyOptionsAndPopup,
 			};
 		}
 
@@ -108,5 +148,58 @@ export default defineContentScript({
 			sendEchoMessage("Hello from content script");
 			processData(["a", "b", "c"]);
 		}, 1000);
+
+		// Inject a small floating panel (in a shadow root, so its styles never
+		// leak into the host page) with buttons demonstrating both
+		// content-script-initiated flows.
+		const ui = await createShadowRootUi(ctx, {
+			name: "webext-message-demo-panel",
+			position: "inline",
+			anchor: "body",
+			onMount: (container) => {
+				const panel = document.createElement("div");
+				panel.style.cssText = [
+					"position:fixed",
+					"bottom:16px",
+					"right:16px",
+					"z-index:2147483647",
+					"display:flex",
+					"flex-direction:column",
+					"gap:8px",
+					"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+				].join(";");
+
+				const makeButton = (label: string, onClick: () => void) => {
+					const button = document.createElement("button");
+					button.type = "button";
+					button.textContent = label;
+					button.style.cssText = [
+						"padding:10px 14px",
+						"background:#667eea",
+						"color:#fff",
+						"border:none",
+						"border-radius:6px",
+						"cursor:pointer",
+						"font-size:13px",
+						"font-weight:500",
+						"box-shadow:0 2px 6px rgba(0,0,0,0.2)",
+					].join(";");
+					button.addEventListener("click", onClick);
+					return button;
+				};
+
+				panel.append(
+					makeButton("📤 Send to Background", () =>
+						sendEchoMessage("Hello from the content script button"),
+					),
+					makeButton("🔔 Notify Options", notifyOptionsAndPopup("options")),
+					makeButton("🔔 Notify Popup", notifyOptionsAndPopup("popup")),
+				);
+
+				container.append(panel);
+			},
+		});
+
+		ui.mount();
 	},
 });
