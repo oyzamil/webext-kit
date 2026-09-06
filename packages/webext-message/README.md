@@ -3,11 +3,10 @@
 Type-safe, zero-config messaging library for browser extensions. Complete solution for background, content script, and page communication.
 
 
-![Webext Message](https://jsr.io/badges/@oyzamil/webext-message/score)
-![Webext Message](https://jsr.io/badges/@oyzamil/webext-message/total-downloads)
-![Webext Message Version](https://jsr.io/badges/@oyzamil/webext-message)
-![M. Muzammil](https://jsr.io/badges/@oyzamil)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Latest Version](https://img.shields.io/npm/v/webext-message?style=for-the-badge&color=green)
+![Monthly Downloads](https://img.shields.io/npm/dm/webext-message?style=for-the-badge&color=green)
+![License: MIT](https://img.shields.io/badge/License-MIT-brown?style=for-the-badge)
+![100% Typescript](https://img.shields.io/github/languages/top/oyzamil/webext-kit?style=for-the-badge&color=blue)
 
 ---
 
