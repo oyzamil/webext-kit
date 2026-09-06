@@ -1,6 +1,6 @@
 {
 	"name": "webext-message",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Type-safe, zero-config messaging library for browser extensions.",
 	"type": "module",
 	"homepage": "https://github.com/oyzamil/webext-kit#readme",

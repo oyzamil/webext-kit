@@ -40,7 +40,6 @@ export const usePort: ExtMessaging.PortHook = (name) => {
 	const reconnectRef = useRef(0);
 	const [data, setData] = useState();
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Expected
 	useEffect(() => {
 		if (!name) {
 			return;
@@ -84,7 +83,6 @@ export const usePort: ExtMessaging.PortHook = (name) => {
 export function useMessageRelay<RequestBody = any>(
 	req: ExtMessaging.Request<MessageName, RequestBody>,
 ) {
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Expected
 	useEffect(() => {
 		// Import here to avoid circular dependency
 		const relayMessageFn = require("./index")

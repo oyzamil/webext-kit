@@ -182,7 +182,7 @@ onMessage(async (req, res) => {
   const data = await fetchData()
   return data // This won't send!
 })
-```
+``` 
 
 2. Only send once:
 ```typescript
