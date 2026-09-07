@@ -29,7 +29,6 @@
 		"prepack": "npm run build"
 	},
 	"dependencies": {
-		"@wxt-dev/browser": "catalog:",
 		"superlock": "^1.3.5"
 	},
 	"peerDependencies": {

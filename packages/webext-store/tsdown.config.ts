@@ -8,6 +8,6 @@ export default defineConfig({
 	hash: false,
 	deps: {
 		alwaysBundle: ["dequal"],
-		neverBundle: ["react", "@wxt-dev/browser", "superlock"],
+		neverBundle: ["react", "superlock"],
 	},
 });
