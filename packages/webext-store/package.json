@@ -1,7 +1,7 @@
 {
 	"name": "webext-store",
 	"description": "Type-safe, zero-config storage for browser extensions, with an optional React hook.",
-	"version": "0.1.0",
+	"version": "0.0.1",
 	"type": "module",
 	"license": "MIT",
 	"engines": {

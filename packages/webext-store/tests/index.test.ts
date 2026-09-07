@@ -1,8 +1,8 @@
 import { fakeBrowser } from "@webext-core/fake-browser";
-import { browser } from "@wxt-dev/browser";
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import { MigrationError, type StoreItem, storage } from "../src/index";
+import { storage } from "../src/index";
+import { MigrationError, type StoreItem } from "../src/types";
 
 /**
  * This works because fakeBrowser is synchronous, and is will finish any number
@@ -63,7 +63,7 @@ describe("Storage Utils", () => {
 				it("should return the default value if passed in options", async () => {
 					const expected = 0;
 					const actual = await storage.getItem(`${storageArea}:count`, {
-						defaultValue: expected,
+						fallback: expected,
 					});
 
 					expect(actual).toBe(expected);
@@ -230,7 +230,7 @@ describe("Storage Utils", () => {
 			describe("setMeta", () => {
 				it("should set metadata at key+$", async () => {
 					const existing = { v: 1 };
-					await browser.storage[storageArea].set({ count$: existing });
+					await fakeBrowser.storage[storageArea].set({ count$: existing });
 					const newValues = {
 						date: Date.now(),
 					};
@@ -246,7 +246,7 @@ describe("Storage Utils", () => {
 					"should remove any properties set to %s",
 					async (version) => {
 						const existing = { v: 1 };
-						await browser.storage[storageArea].set({ count$: existing });
+						await fakeBrowser.storage[storageArea].set({ count$: existing });
 						const expected = {};
 
 						await storage.setMeta(`${storageArea}:count`, { v: version });
@@ -691,7 +691,7 @@ describe("Storage Utils", () => {
 				const migrateToV3 = vi.fn((oldCount) => oldCount * 3);
 
 				const item = storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						2: migrateToV2,
@@ -764,7 +764,7 @@ describe("Storage Utils", () => {
 				const onMigrationComplete = vi.fn((count, _v) => count);
 
 				storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						2: migrateToV2,
@@ -783,7 +783,7 @@ describe("Storage Utils", () => {
 				const migrateToV3 = vi.fn((oldCount) => oldCount * 3);
 
 				const item = storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						2: migrateToV2,
@@ -809,7 +809,7 @@ describe("Storage Utils", () => {
 				const migrateToV2 = vi.fn((oldCount) => oldCount * 2);
 
 				const item = storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 2,
 					migrations: {
 						2: migrateToV2,
@@ -836,7 +836,7 @@ describe("Storage Utils", () => {
 				const migrateToV3 = vi.fn((oldCount) => oldCount * 3);
 
 				storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						2: migrateToV2,
@@ -858,7 +858,7 @@ describe("Storage Utils", () => {
 				const migrateToV3 = vi.fn((oldCount) => oldCount * 3);
 
 				const item = storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						1: migrateToV1,
@@ -889,7 +889,7 @@ describe("Storage Utils", () => {
 				});
 
 				const item = storage.defineItem(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: nextVersion,
 				});
 				await waitForMigrations();
@@ -931,7 +931,7 @@ describe("Storage Utils", () => {
 				const consoleSpy = vi.spyOn(console, "debug");
 
 				storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						2: migrateToV2,
@@ -971,7 +971,7 @@ describe("Storage Utils", () => {
 				const consoleSpy = vi.spyOn(console, "debug");
 
 				storage.defineItem<number, { v: number }>(`local:count`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 3,
 					migrations: {
 						2: migrateToV2,
@@ -980,7 +980,7 @@ describe("Storage Utils", () => {
 				});
 
 				storage.defineItem<number, { v: number }>(`local:count2`, {
-					defaultValue: 0,
+					fallback: 0,
 					version: 2,
 					migrations: {
 						2: migrateToV2,
@@ -1076,7 +1076,7 @@ describe("Storage Utils", () => {
 			it("should return the provided default value if missing", async () => {
 				const expected = 0;
 				const item = storage.defineItem(`local:count`, {
-					defaultValue: expected,
+					fallback: expected,
 				});
 
 				const actual = await item.getValue();
@@ -1264,9 +1264,9 @@ describe("Storage Utils", () => {
 			});
 
 			it("should use the default value for the newValue when the item is removed", async () => {
-				const defaultValue = "default";
+				const fallback = "default";
 				const item = storage.defineItem<string>(`local:key`, {
-					defaultValue,
+					fallback,
 				});
 				const cb = vi.fn();
 				const oldValue = "123";
@@ -1276,13 +1276,13 @@ describe("Storage Utils", () => {
 				await item.removeValue();
 
 				expect(cb).toHaveBeenCalledTimes(1);
-				expect(cb).toHaveBeenCalledWith(defaultValue, oldValue);
+				expect(cb).toHaveBeenCalledWith(fallback, oldValue);
 			});
 
 			it("should use the default value for the oldItem when the item didn't exist in storage yet", async () => {
-				const defaultValue = "default";
+				const fallback = "default";
 				const item = storage.defineItem<string>(`local:key`, {
-					defaultValue,
+					fallback,
 				});
 				const cb = vi.fn();
 				const newValue = "123";
@@ -1292,7 +1292,7 @@ describe("Storage Utils", () => {
 				await item.setValue(newValue);
 
 				expect(cb).toHaveBeenCalledTimes(1);
-				expect(cb).toHaveBeenCalledWith(newValue, defaultValue);
+				expect(cb).toHaveBeenCalledWith(newValue, fallback);
 			});
 
 			it("should remove the listener when calling the returned function", async () => {
@@ -1320,7 +1320,7 @@ describe("Storage Utils", () => {
 			});
 		});
 
-		describe.each(["fallback", "defaultValue"] as const)(
+		describe.each(["fallback", "fallback"] as const)(
 			"%s option",
 			(fallbackKey) => {
 				it("should return the default value when provided", () => {
@@ -1330,14 +1330,14 @@ describe("Storage Utils", () => {
 					});
 
 					expect(item.fallback).toBe(fallback);
-					expect(item.defaultValue).toBe(fallback);
+					expect(item.fallback).toBe(fallback);
 				});
 
 				it("should return null when not provided", () => {
 					const item = storage.defineItem<number>(`local:test`);
 
 					expect(item.fallback).toBeNull();
-					expect(item.defaultValue).toBeNull();
+					expect(item.fallback).toBeNull();
 				});
 			},
 		);
@@ -1379,7 +1379,7 @@ describe("Storage Utils", () => {
 
 				await item.removeValue();
 				// Make sure it's actually blank before running the test
-				expect(await browser.storage.local.get()).toEqual({});
+				expect(await fakeBrowser.storage.local.get()).toEqual({});
 				init.mockClear();
 
 				const [value1, value2] = await Promise.all([
@@ -1405,14 +1405,14 @@ describe("Storage Utils", () => {
 				expectTypeOf(item3).toEqualTypeOf<StoreItem<number | null, {}>>();
 
 				const item4 = storage.defineItem<number>(`local:test`, {
-					defaultValue: undefined,
+					fallback: undefined,
 				});
 				expectTypeOf(item4).toEqualTypeOf<StoreItem<number | null, {}>>();
 			});
 
 			it("should define a non-null value when options are passed with a nullish default value", () => {
 				const item = storage.defineItem(`local:test`, {
-					defaultValue: 123,
+					fallback: 123,
 				});
 				expectTypeOf(item).toEqualTypeOf<StoreItem<number, {}>>();
 
@@ -1424,7 +1424,7 @@ describe("Storage Utils", () => {
 
 			it("should define a nullable value when options are passed with null default value", () => {
 				const item = storage.defineItem<number | null>(`local:test`, {
-					defaultValue: null,
+					fallback: null,
 				});
 				expectTypeOf(item).toEqualTypeOf<StoreItem<number | null, {}>>();
 			});

@@ -10,14 +10,14 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { storage } from "./index";
 import {
 	type GetItemOptions,
 	type RemoveItemOptions,
 	type StorageItemKey,
 	type StoreItem,
-	storage,
 	type WatchCallback,
-} from "./index";
+} from "./types";
 
 export interface UseStorageOptions<T> extends GetItemOptions<T> {
 	/**

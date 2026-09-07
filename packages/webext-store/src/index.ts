@@ -4,9 +4,24 @@
  *
  * @module webext-store
  */
-import { type Browser, browser } from "@wxt-dev/browser";
+
 import { dequal } from "dequal/lite";
 import { withLock } from "superlock";
+
+import { browser } from "./browser";
+import {
+	type GetItemOptions,
+	MigrationError,
+	type RemoveItemOptions,
+	type StorageArea,
+	type StorageAreaChanges,
+	type StorageItemKey,
+	type Store,
+	type StoreDriver,
+	type StoreItem,
+	type StoreItemOptions,
+	type WatchCallback,
+} from "./types";
 
 export const storage: Store = createStorage();
 
@@ -72,7 +87,7 @@ function createStorage(): Store {
 		opts: GetItemOptions<any> | undefined,
 	) => {
 		const res = await driver.getItem<any>(driverKey);
-		return getValueOrFallback(res, opts?.fallback ?? opts?.defaultValue);
+		return getValueOrFallback(res, opts?.fallback);
 	};
 
 	const getMeta = async (driver: StoreDriver, driverKey: string) => {
@@ -158,6 +173,10 @@ function createStorage(): Store {
 					// key: StoreItem
 					keyStr = key.key;
 					opts = { fallback: key.fallback };
+				} else if ("item" in key) {
+					// key: { item }
+					keyStr = key.item.key;
+					opts = { fallback: key.item.fallback };
 				} else {
 					// key: { key, options }
 					keyStr = key.key;
@@ -165,10 +184,12 @@ function createStorage(): Store {
 				}
 
 				orderedKeys.push(keyStr);
-				const { driverArea, driverKey } = resolveKey(keyStr);
-				const areaKeys = areaToKeyMap.get(driverArea) ?? [];
 
+				const { driverArea, driverKey } = resolveKey(keyStr);
+
+				const areaKeys = areaToKeyMap.get(driverArea) ?? [];
 				areaToKeyMap.set(driverArea, areaKeys.concat(driverKey));
+
 				keyToOptsMap.set(keyStr, opts);
 			});
 
@@ -182,7 +203,7 @@ function createStorage(): Store {
 						const opts = keyToOptsMap.get(key);
 						const value = getValueOrFallback(
 							driverResult.value,
-							opts?.fallback ?? opts?.defaultValue,
+							opts?.fallback ?? opts?.fallback,
 						);
 
 						resultsMap.set(key, value);
@@ -223,11 +244,18 @@ function createStorage(): Store {
 			}, {});
 
 			const resultsMap: Record<string, any> = {};
+			const storage = browser.storage;
+
+			if (!storage) {
+				throw new Error("Browser storage API is unavailable");
+			}
+
 			await Promise.all(
 				Object.entries(areaToDriverMetaKeysMap).map(async ([area, keys]) => {
-					const areaRes = await browser.storage[area as StorageArea].get(
+					const areaRes = await storage[area as StorageArea]!.get(
 						keys.map((key) => key.driverMetaKey),
 					);
+
 					keys.forEach((key) => {
 						resultsMap[key.key] = areaRes[key.driverMetaKey] ?? {};
 					});
@@ -580,10 +608,9 @@ function createStorage(): Store {
 function createDriver(storageArea: StorageArea): StoreDriver {
 	const getStorageArea = () => {
 		if (browser.runtime == null) {
-			throw Error(`'webext-store' must be loaded in a web extension environment.
-
- - If thrown during tests, mock '@wxt-dev/browser' correctly. See https://wxt.dev/guide/go-further/testing.html
-`);
+			throw Error(
+				`'webext-store' must be loaded in a web extension environment.`,
+			);
 		}
 
 		if (browser.storage == null) {
@@ -593,8 +620,10 @@ function createDriver(storageArea: StorageArea): StoreDriver {
 		}
 
 		const area = browser.storage[storageArea];
-		if (area == null)
+
+		if (area == null) {
 			throw Error(`"browser.storage.${storageArea}" is undefined`);
+		}
 
 		return area;
 	};
@@ -680,336 +709,4 @@ function createDriver(storageArea: StorageArea): StoreDriver {
 			watchListeners.clear();
 		},
 	};
-}
-
-export interface Store {
-	/**
-	 * Get an item from storage, or return `null` if it doesn't exist.
-	 *
-	 * @example
-	 *   await storage.getItem<number>('local:installDate');
-	 */
-	getItem<TValue>(
-		key: StorageItemKey,
-		opts: GetItemOptions<TValue> & { fallback: TValue },
-	): Promise<TValue>;
-
-	getItem<TValue>(
-		key: StorageItemKey,
-		opts?: GetItemOptions<TValue>,
-	): Promise<TValue | null>;
-
-	/**
-	 * Get multiple items from storage. The return order is guaranteed to be the
-	 * same as the order requested.
-	 *
-	 * @example
-	 *   await storage.getItems(['local:installDate', 'session:someCounter']);
-	 */
-	getItems(
-		keys: Array<
-			| StorageItemKey
-			| StoreItem<any, any>
-			| { key: StorageItemKey; options?: GetItemOptions<any> }
-		>,
-	): Promise<Array<{ key: StorageItemKey; value: any }>>;
-
-	/**
-	 * Return an object containing metadata about the key. Object is stored at
-	 * `key + "$"`. If value is not an object, it returns an empty object.
-	 *
-	 * @example
-	 *   await storage.getMeta('local:installDate');
-	 */
-	getMeta<T extends Record<string, unknown>>(key: StorageItemKey): Promise<T>;
-
-	/**
-	 * Get the metadata of multiple storage items.
-	 *
-	 * @param keys List of keys or items to get the metadata of.
-	 * @returns An array containing storage keys and their metadata.
-	 */
-	getMetas(
-		keys: Array<StorageItemKey | StoreItem<any, any>>,
-	): Promise<Array<{ key: StorageItemKey; meta: any }>>;
-
-	/**
-	 * Set a value in storage. Setting a value to `null` or `undefined` is
-	 * equivalent to calling `removeItem`.
-	 *
-	 * @example
-	 *   await storage.setItem<number>('local:installDate', Date.now());
-	 */
-	setItem<T>(key: StorageItemKey, value: T | null): Promise<void>;
-
-	/**
-	 * Set multiple values in storage. If a value is set to `null` or `undefined`,
-	 * the key is removed.
-	 *
-	 * @example
-	 *   await storage.setItem([
-	 *   { key: "local:installDate", value: Date.now() },
-	 *   { key: "session:someCounter, value: 5 },
-	 *   ]);
-	 */
-	setItems(
-		values: Array<
-			| { key: StorageItemKey; value: any }
-			| { item: StoreItem<any, any>; value: any }
-		>,
-	): Promise<void>;
-
-	/**
-	 * Sets metadata properties. If some properties are already set, but are not
-	 * included in the `properties` parameter, they will not be removed.
-	 *
-	 * @example
-	 *   await storage.setMeta('local:installDate', { appVersion });
-	 */
-	setMeta<T extends Record<string, unknown>>(
-		key: StorageItemKey,
-		properties: T | null,
-	): Promise<void>;
-
-	/**
-	 * Set the metadata of multiple storage items.
-	 *
-	 * @param metas List of storage keys or items and metadata to set for each.
-	 */
-	setMetas(
-		metas: Array<
-			| { key: StorageItemKey; meta: Record<string, any> }
-			| { item: StoreItem<any, any>; meta: Record<string, any> }
-		>,
-	): Promise<void>;
-
-	/**
-	 * Removes an item from storage.
-	 *
-	 * @example
-	 *   await storage.removeItem('local:installDate');
-	 */
-	removeItem(key: StorageItemKey, opts?: RemoveItemOptions): Promise<void>;
-
-	/** Remove a list of keys from storage. */
-	removeItems(
-		keys: Array<
-			| StorageItemKey
-			| StoreItem<any, any>
-			| { key: StorageItemKey; options?: RemoveItemOptions }
-			| { item: StoreItem<any, any>; options?: RemoveItemOptions }
-		>,
-	): Promise<void>;
-
-	/** Removes all items from the provided storage area. */
-	clear(base: StorageArea): Promise<void>;
-
-	/**
-	 * Remove the entire metadata for a key, or specific properties by name.
-	 *
-	 * @example
-	 *   // Remove all metadata properties from the item
-	 *   await storage.removeMeta('local:installDate');
-	 *
-	 *   // Remove only specific the "v" field
-	 *   await storage.removeMeta('local:installDate', 'v');
-	 */
-	removeMeta(
-		key: StorageItemKey,
-		properties?: string | string[],
-	): Promise<void>;
-
-	/** Return all the items in storage. */
-	snapshot(
-		base: StorageArea,
-		opts?: SnapshotOptions,
-	): Promise<Record<string, unknown>>;
-
-	/**
-	 * Restores the results of `snapshot`. If new properties have been saved since
-	 * the snapshot, they are not overridden. Only values existing in the snapshot
-	 * are overridden.
-	 */
-	restoreSnapshot(base: StorageArea, data: any): Promise<void>;
-
-	/** Watch for changes to a specific key in storage. */
-	watch<T>(key: StorageItemKey, cb: WatchCallback<T | null>): Unwatch;
-
-	/** Remove all watch listeners. */
-	unwatch(): void;
-
-	/**
-	 * Define a storage item with a default value, type, or versioning.
-	 */
-	defineItem<TValue, TMetadata extends Record<string, unknown> = {}>(
-		key: StorageItemKey,
-	): StoreItem<TValue | null, TMetadata>;
-	defineItem<TValue, TMetadata extends Record<string, unknown> = {}>(
-		key: StorageItemKey,
-		options: StoreItemOptions<TValue> & { fallback: TValue },
-	): StoreItem<TValue, TMetadata>;
-	defineItem<TValue, TMetadata extends Record<string, unknown> = {}>(
-		key: StorageItemKey,
-		options: StoreItemOptions<TValue> & { defaultValue: TValue },
-	): StoreItem<TValue, TMetadata>;
-	defineItem<TValue, TMetadata extends Record<string, unknown> = {}>(
-		key: StorageItemKey,
-		options: StoreItemOptions<TValue> & {
-			init: () => TValue | Promise<TValue>;
-		},
-	): StoreItem<TValue, TMetadata>;
-	defineItem<TValue, TMetadata extends Record<string, unknown> = {}>(
-		key: StorageItemKey,
-		options: StoreItemOptions<TValue>,
-	): StoreItem<TValue | null, TMetadata>;
-}
-
-interface StoreDriver {
-	getItem<T>(key: string): Promise<T | null>;
-	getItems(keys: string[]): Promise<{ key: string; value: any }[]>;
-	setItem<T>(key: string, value: T | null): Promise<void>;
-	setItems(values: Array<{ key: string; value: any }>): Promise<void>;
-	removeItem(key: string): Promise<void>;
-	removeItems(keys: string[]): Promise<void>;
-	clear(): Promise<void>;
-	snapshot(): Promise<Record<string, unknown>>;
-	restoreSnapshot(data: Record<string, unknown>): Promise<void>;
-	watch<T>(key: string, cb: WatchCallback<T | null>): Unwatch;
-	unwatch(): void;
-}
-
-export interface StoreItem<TValue, TMetadata extends Record<string, unknown>> {
-	/** The storage key passed when creating the storage item. */
-	key: StorageItemKey;
-
-	/** @deprecated Renamed to fallback, use it instead. */
-	defaultValue: TValue;
-
-	/** The value provided by the `fallback` option. */
-	fallback: TValue;
-
-	/** Get the latest value from storage. */
-	getValue(): Promise<TValue>;
-
-	/** Get metadata. */
-	getMeta(): Promise<NullablePartial<TMetadata>>;
-
-	/** Set the value in storage. */
-	setValue(value: TValue): Promise<void>;
-
-	/** Set metadata properties. */
-	setMeta(properties: NullablePartial<TMetadata>): Promise<void>;
-
-	/** Remove the value from storage. */
-	removeValue(opts?: RemoveItemOptions): Promise<void>;
-
-	/** Remove all metadata or certain properties from metadata. */
-	removeMeta(properties?: string[]): Promise<void>;
-
-	/** Listen for changes to the value in storage. */
-	watch(cb: WatchCallback<TValue>): Unwatch;
-
-	/**
-	 * If there are migrations defined on the storage item, migrate to the latest
-	 * version.
-	 *
-	 * **This function is ran automatically whenever the extension updates**, so
-	 * you don't have to call it manually.
-	 */
-	migrate(): Promise<void>;
-}
-
-export type StorageArea = "local" | "session" | "sync" | "managed";
-export type StorageItemKey = `${StorageArea}:${string}`;
-
-export interface GetItemOptions<T> {
-	/** @deprecated Renamed to `fallback`, use it instead. */
-	defaultValue?: T;
-
-	/** Default value returned when `getItem` would otherwise return `null`. */
-	fallback?: T;
-}
-
-export interface RemoveItemOptions {
-	/**
-	 * Optionally remove metadata when deleting a key.
-	 *
-	 * @default false
-	 */
-	removeMeta?: boolean;
-}
-
-export interface SnapshotOptions {
-	/**
-	 * Exclude a list of keys. The storage area prefix should be removed since the
-	 * snapshot is for a specific storage area already.
-	 */
-	excludeKeys?: string[];
-}
-
-export interface StoreItemOptions<T> {
-	/** @deprecated Renamed to `fallback`, use it instead. */
-	defaultValue?: T;
-
-	/** Default value returned when `getValue` would otherwise return `null`. */
-	fallback?: T;
-
-	/**
-	 * If passed, a value in storage will be initialized immediately after
-	 * defining the storage item. This function returns the value that will be
-	 * saved to storage during the initialization process if a value doesn't
-	 * already exist.
-	 */
-	init?: () => T | Promise<T>;
-
-	/**
-	 * Provide a version number for the storage item to enable migrations. When
-	 * changing the version in the future, migration functions will be ran on
-	 * application startup.
-	 */
-	version?: number;
-
-	/**
-	 * A map of version numbers to the functions used to migrate the data to that
-	 * version.
-	 */
-	migrations?: Record<number, (oldValue: any) => any>;
-
-	/**
-	 * Print debug logs, such as migration process.
-	 *
-	 * @default false
-	 */
-	debug?: boolean;
-
-	/** A callback function that runs on migration complete. */
-	onMigrationComplete?: (migratedValue: T, targetVersion: number) => void;
-}
-
-export type StorageAreaChanges = {
-	[key: string]: Browser.storage.StorageChange;
-};
-
-/**
- * Same as `Partial`, but includes `| null`. It makes all the properties of an
- * object optional and nullable.
- */
-type NullablePartial<T> = {
-	[key in keyof T]+?: T[key] | undefined | null;
-};
-
-/** Callback called when a value in storage is changed. */
-export type WatchCallback<T> = (newValue: T, oldValue: T) => void;
-
-/** Call to remove a watch listener */
-export type Unwatch = () => void;
-
-export class MigrationError extends Error {
-	constructor(
-		public key: string,
-		public version: number,
-		options?: ErrorOptions,
-	) {
-		super(`v${version} migration failed for "${key}"`, options);
-	}
 }

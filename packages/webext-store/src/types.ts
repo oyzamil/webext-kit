@@ -3,7 +3,41 @@
  *
  * @module webext-store/types
  */
-import { type Browser } from "@wxt-dev/browser";
+export type StorageChange = {
+	oldValue?: unknown;
+	newValue?: unknown;
+};
+
+export interface StorageAreaAPI {
+	get<T = Record<string, unknown>>(keys?: string | string[] | null): Promise<T>;
+
+	set(items: Record<string, unknown>): Promise<void>;
+
+	remove(keys: string | string[]): Promise<void>;
+
+	clear(): Promise<void>;
+
+	onChanged: {
+		addListener(
+			callback: (changes: Record<string, StorageChange>) => void,
+		): void;
+
+		removeListener(
+			callback: (changes: Record<string, StorageChange>) => void,
+		): void;
+	};
+}
+
+export interface Browser {
+	runtime?: unknown;
+
+	storage?: {
+		local?: StorageAreaAPI;
+		session?: StorageAreaAPI;
+		sync?: StorageAreaAPI;
+		managed?: StorageAreaAPI;
+	};
+}
 
 /** Resolved storage key with driver information */
 export type ResolvedKey = {
@@ -237,7 +271,7 @@ export interface StoreItemOptions<T> {
 
 /** Storage area changes from storage.onChanged listener */
 export type StorageAreaChanges = {
-	[key: string]: Browser.storage.StorageChange;
+	[key: string]: StorageChange;
 };
 
 /**
