@@ -4,9 +4,6 @@
   "workspaces": {
     "": {
       "name": "webext-kit",
-      "dependencies": {
-        "@types/node": "^26.4.1",
-      },
       "devDependencies": {
         "@biomejs/biome": "^2.5.12",
         "turbo": "^2.10.12",

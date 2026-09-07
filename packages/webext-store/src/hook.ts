@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { storage } from "./index";
+import { storage } from "./storage";
 import {
 	type GetItemOptions,
 	type RemoveItemOptions,

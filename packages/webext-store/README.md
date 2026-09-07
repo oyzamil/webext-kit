@@ -25,7 +25,7 @@ Works with Chrome, Firefox, Edge, and any other `browser.storage`-compatible ext
   - [snapshot / restoreSnapshot](#snapshot--restoresnapshot)
   - [watch / unwatch](#watch--unwatch)
 - [defineItem — typed, versioned items](#defineitem--typed-versioned-items)
-- [React: webext-store/react](#react-webext-storereact)
+- [React: webext-store](#react-webext-storereact)
   - [useStorage](#usestorage)
   - [Updating one key of an object](#updating-one-key-of-an-object)
   - [useStorageWatch](#usestoragewatch)
@@ -51,7 +51,7 @@ Yes — full autocomplete and inline type-checking out of the box, no extra
 own `.d.ts` declaration files in `dist/`, wired up via `package.json`'s
 `exports` field, so your editor (VS Code, WebStorm, anything using the
 TypeScript language server) picks them up automatically the moment you
-`import` from `webext-store` or `webext-store/react` — same as importing
+`import` from `webext-store` or `webext-store` — same as importing
 from any other typed package.
 
 Concretely, that means:
@@ -65,7 +65,7 @@ Concretely, that means:
 - Storage keys are typechecked as `` `local:${string}` | `session:${string}` |
   `sync:${string}` | `managed:${string}` `` — typo the area prefix (e.g.
   `'locl:foo'`) and TypeScript flags it before you run anything.
-- The React hook (`webext-store/react`) has its own typed overloads —
+- The React hook (`webext-store`) has its own typed overloads —
   passing a raw key vs. a `defineItem()` item gives you different, correctly
   narrowed return types (see [useStorage](#usestorage) below).
 
@@ -315,7 +315,7 @@ const installIdItem = storage.defineItem<string>('local:installId', {
 const id = await installIdItem.getValue(); // generated once, stable after that
 ```
 
-## React: `webext-store/react`
+## React: `webext-store`
 
 `react` is an optional peer dependency, only ever imported from this
 sub-path — importing the core `webext-store` package never pulls React into
@@ -333,7 +333,7 @@ whenever it changes — from this component, another component, another tab,
 or another extension context.
 
 ```tsx
-import { useStorage } from 'webext-store/react';
+import { useStorage } from 'webext-store';
 
 function Counter() {
   const { value, loading, error, setValue, removeValue } = useStorage('local:counter', {
@@ -429,7 +429,7 @@ something outside React, invalidating a cache — without needing the value
 in render state at all.
 
 ```tsx
-import { useStorageWatch } from 'webext-store/react';
+import { useStorageWatch } from 'webext-store';
 
 function AuthWatcher() {
   useStorageWatch<string>('local:authToken', (newToken) => {

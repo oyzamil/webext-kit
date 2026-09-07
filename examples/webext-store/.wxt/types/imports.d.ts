@@ -25,7 +25,6 @@ declare global {
   const defineUnlistedScript: typeof import('wxt/utils/define-unlisted-script').defineUnlistedScript
   const defineWxtPlugin: typeof import('wxt/utils/define-wxt-plugin').defineWxtPlugin
   const fakeBrowser: typeof import('wxt/testing/fake-browser').fakeBrowser
-  const free: typeof import('D:/Projects/webext-kit/examples/webext-store/src/utils/storage-items').free
   const getAppConfig: typeof import('wxt/utils/app-config').getAppConfig
   const heartbeatItem: typeof import('D:/Projects/webext-kit/examples/webext-store/src/utils/storage-items').heartbeatItem
   const injectScript: typeof import('wxt/utils/inject-script').injectScript

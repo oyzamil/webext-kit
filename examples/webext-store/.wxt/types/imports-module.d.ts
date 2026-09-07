@@ -20,5 +20,5 @@ declare module '#imports' {
   export { fakeBrowser } from 'wxt/testing/fake-browser';
   export { Card, Button, Input, Textarea, Select, JsonBlock, Field, Row, LogList } from '../src/components/ui';
   export { useLog } from '../src/hooks/useLog';
-  export { settingsItem, migrations, installIdItem, heartbeatItem, BATCH_KEYS, appSettingItem, free, Settings, AppSetting } from '../src/utils/storage-items';
+  export { settingsItem, migrations, installIdItem, heartbeatItem, BATCH_KEYS, appSettingItem, Settings, AppSetting } from '../src/utils/storage-items';
 }
