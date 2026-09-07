@@ -4,7 +4,7 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
-	"packageManager": "bun@1.4.0",
+	"packageManager": "bun@1.4.2",
 	"scripts": {
 		"git": "bun run ./scripts/git-helper.ts add-git",
 		"build": "turbo run build",
