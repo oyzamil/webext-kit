@@ -1,6 +1,11 @@
 import { defineConfig } from "wxt";
 
 export default defineConfig({
+	srcDir: "src",
+	modules: ["@wxt-dev/auto-icons"],
+	autoIcons: {
+		baseIconPath: "assets/icon.png",
+	},
 	manifest: {
 		name: "webext-message Demo",
 		version: "1.0.0",
@@ -12,7 +17,6 @@ export default defineConfig({
 			open_in_tab: true,
 		},
 	},
-	srcDir: "src",
 	webExt: {
 		disabled: true,
 	},

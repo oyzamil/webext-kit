@@ -1,4 +1,4 @@
-# Webext Message
+# webext-message
 
 Type-safe, zero-config messaging library for browser extensions. Complete solution for background, content script, and page communication.
 

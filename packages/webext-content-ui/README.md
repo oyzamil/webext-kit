@@ -1,4 +1,4 @@
-# Webext Content Ui
+# webext-content-ui
 
 Inject elements into DOM — single element or batch of anchors, with optional shared styles across shadow roots. Combines Plasmo's batch-anchor injection with WXT's clean UI API and CSS deduplication neither has built-in. Also handles the two problems that come up once you're running the same UI across several content scripts on an SPA: sharing one CSS fetch/stylesheet instead of duplicating it per script, and reacting to client-side route changes without a full page reload.
 

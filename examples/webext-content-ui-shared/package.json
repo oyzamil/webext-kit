@@ -1,5 +1,5 @@
 {
-	"name": "webext-content-ui-shared-example",
+	"name": "webext-content-ui-shared-demo",
 	"description": "Repro: WXT duplicates shared Tailwind CSS across popup + content script entrypoints instead of emitting one shared chunk",
 	"private": true,
 	"version": "0.0.1",
@@ -13,18 +13,19 @@
 		"postinstall": "wxt prepare"
 	},
 	"dependencies": {
-		"react": "^19.2.8",
-		"react-dom": "^19.2.8",
+		"react": "catalog:",
+		"react-dom": "catalog:",
 		"webext-content-ui": "workspace:*"
 	},
 	"devDependencies": {
-		"@tailwindcss/vite": "^4.3.3",
+		"@tailwindcss/vite": "catalog:",
+		"@wxt-dev/auto-icons": "catalog:",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",
 		"@vitejs/plugin-react": "^6.1.1",
-		"tailwindcss": "^4.3.3",
-		"typescript": "^7.0.2",
-		"vite": "^8.2.2",
-		"wxt": "^0.21.4"
+		"tailwindcss": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"wxt": "catalog:"
 	}
 }

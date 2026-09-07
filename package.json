@@ -21,7 +21,7 @@
 	},
 	"devDependencies": {
 		"turbo": "^2.10.12",
-		"@biomejs/biome": "^2.5.11"
+		"@biomejs/biome": "^2.5.12"
 	},
 	"workspaces": {
 		"packages": [
@@ -29,14 +29,24 @@
 			"examples/*"
 		],
 		"catalog": {
-			"@types/chrome": "^0.2.7",
-			"@types/node": "^26.4.0",
-			"@types/react": "^19.2.18",
-			"@types/react-dom": "^19.2.5",
+			"wxt": "^0.21.4",
+			"vite": "^8.2.2",
 			"jsdom": "^30.0.1",
-			"tsdown": "^0.22.14",
-			"vitest": "^4.1.11",
-			"typescript": "^7.0.2"
+			"react": "^19.2.8",
+			"tsdown": "^0.23.0",
+			"vitest": "^5.0.0",
+			"react-dom": "^19.2.8",
+			"typescript": "^7.0.2",
+			"@types/node": "^26.4.1",
+			"tailwindcss": "^4.3.3",
+			"@types/react": "^19.2.18",
+			"@types/chrome": "^0.2.9",
+			"@types/react-dom": "^19.2.7",
+			"@wxt-dev/browser": "^0.2.9",
+			"@tailwindcss/vite": "^4.3.3",
+			"@wxt-dev/auto-icons": "^1.1.2",
+			"@vitejs/plugin-react": "^6.1.1",
+			"@wxt-dev/module-react": "^1.2.2"
 		}
 	}
 }

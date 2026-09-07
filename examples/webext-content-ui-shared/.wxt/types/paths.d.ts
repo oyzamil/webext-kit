@@ -8,10 +8,10 @@ declare module "wxt/browser" {
     | "/content-scripts/aliexpress.js"
     | "/content-scripts/ebay.js"
     | "/content-scripts/shared.js"
-    | "/icon-128.png"
-    | "/icon-16.png"
-    | "/icon-32.png"
-    | "/icon-48.png"
+    | "/icons/128.png"
+    | "/icons/16.png"
+    | "/icons/32.png"
+    | "/icons/48.png"
     | "/popup.html"
   type HtmlPublicPath = Extract<PublicPath, `${string}.html`>
   export interface WxtRuntime {

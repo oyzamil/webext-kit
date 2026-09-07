@@ -1,22 +1,86 @@
 {
 	"name": "webext-store",
-	"version": "0.0.0",
-	"description": "Type-safe, zero-config storage library for browser extensions",
+	"description": "Type-safe, zero-config storage for browser extensions, with an optional React hook.",
+	"version": "0.1.0",
 	"type": "module",
-	"homepage": "https://github.com/oyzamil/webext-kit#readme",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/oyzamil/webext-kit.git"
+	"license": "MIT",
+	"engines": {
+		"node": ">=18"
 	},
+	"sideEffects": false,
 	"keywords": [
-		"react-hook",
 		"browser-extension",
 		"chrome-extension",
+		"webextension",
 		"wxt",
 		"storage",
-		"browser-extension-storage",
+		"react-hook",
 		"extension-storage"
 	],
-	"author": "M.Muzammil <qazi.web@gmail.com> (https://muzammil.work/)",
-	"license": "MIT"
+	"scripts": {
+		"build": "tsdown",
+		"dev": "tsdown --watch",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"check": "biome check .",
+		"format": "biome format --write .",
+		"typecheck": "tsc --noEmit",
+		"prepack": "npm run build"
+	},
+	"dependencies": {
+		"@wxt-dev/browser": "catalog:",
+		"superlock": "^1.3.5"
+	},
+	"peerDependencies": {
+		"react": ">=16.8.0"
+	},
+	"peerDependenciesMeta": {
+		"react": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@testing-library/dom": "^10.4.1",
+		"@testing-library/react": "^16.3.3",
+		"@types/react": "catalog:",
+		"@vitest/coverage-v8": "^5.0.0",
+		"@webext-core/fake-browser": "^2.0.1",
+		"dequal": "^2.0.3",
+		"jsdom": "catalog:",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"tsdown": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.mts",
+				"default": "./dist/index.mjs"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		},
+		"./react": {
+			"import": {
+				"types": "./dist/hook.d.mts",
+				"default": "./dist/hook.mjs"
+			},
+			"require": {
+				"types": "./dist/hook.d.cts",
+				"default": "./dist/hook.cjs"
+			}
+		}
+	},
+	"files": [
+		"dist"
+	]
 }
