@@ -1,4 +1,4 @@
-import { useStorage } from "webext-store";
+import { useStorage } from "webext-store/react";
 
 import { heartbeatItem } from "@/utils/storage-items";
 

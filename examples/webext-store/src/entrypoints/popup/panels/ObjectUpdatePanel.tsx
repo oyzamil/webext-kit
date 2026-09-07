@@ -1,4 +1,4 @@
-import { useStorage } from "webext-store";
+import { useStorage } from "webext-store/react";
 
 import { type AppSetting, appSettingItem } from "@/utils/storage-items";
 

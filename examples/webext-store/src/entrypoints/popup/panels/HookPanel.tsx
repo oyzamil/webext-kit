@@ -1,4 +1,4 @@
-import { useStorage, useStorageWatch } from "webext-store";
+import { useStorage, useStorageWatch } from "webext-store/react";
 
 import { heartbeatItem } from "@/utils/storage-items";
 
