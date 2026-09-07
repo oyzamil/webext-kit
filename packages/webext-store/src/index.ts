@@ -8,7 +8,7 @@ import { type Browser, browser } from "@wxt-dev/browser";
 import { dequal } from "dequal/lite";
 import { withLock } from "superlock";
 
-export const storage = createStorage();
+export const storage: Store = createStorage();
 
 function createStorage(): Store {
 	const drivers: Record<StorageArea, StoreDriver> = {
